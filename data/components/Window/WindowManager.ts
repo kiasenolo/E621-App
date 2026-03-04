@@ -1,18 +1,22 @@
 import React from "react";
 import { createRoot, Root } from "react-dom/client";
 import Window, { WindowProps, WindowRect } from "./Window";
+import functions from "@/data/module/functions";
+export type SnapPosition = "top" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 export type WindowManagerEventMap<T> = {
   "create": { id: string; customData?: T };
   "close": { id: string };
   "focus": { id: string };
-  "moveStart": { id: string };
-  "move": { id: string };
-  "moveEnd": { id: string };
-  "resizeStart": { id: string };
-  "resize": { id: string };
-  "resizeEnd": { id: string };
+  "moveStart": { id: string; rect?: WindowRect };
+  "move": { id: string; rect?: WindowRect };
+  "moveEnd": { id: string; rect?: WindowRect };
+  "resizeStart": { id: string; rect?: WindowRect };
+  "resize": { id: string; rect?: WindowRect };
+  "resizeEnd": { id: string; rect?: WindowRect };
   "idupdate": { originalID: string; newID: string };
+  "snapPreview": { id: string; snapPosition: SnapPosition | null };
+  "snapEnd": { id: string; snapPosition: SnapPosition };
 };
 
 export type WindowSnapshot<T = undefined> = {
@@ -41,6 +45,7 @@ export type WindowInstance<T = undefined> = WindowSnapshot<T> & {
   minimize: () => void;
   toggleMaximize: () => void;
   close: () => void;
+  snapWindow: (position: SnapPosition) => void;
 
   convertGlobalToLocal: (clientX: number, clientY: number) => { left: number, top: number };
   getContainerMetrics: () => { width: number, height: number };
@@ -180,18 +185,80 @@ export class WindowManager<T = undefined> {
     };
   };
 
-  public notifyMoveStart = (id: string) => { this.emit("moveStart", { id }); };
-  public notifyMove = (id: string) => { this.emit("move", { id }); };
-  public notifyMoveEnd = (id: string) => {
-    this.syncWindowRect(id);
-    this.emit("moveEnd", { id });
+  public notifySnapPreview = (id: string, snapPosition: SnapPosition | null) => {
+    this.emit("snapPreview", { id, snapPosition });
   };
 
-  public notifyResizeStart = (id: string) => this.emit("resizeStart", { id });
-  public notifyResize = (id: string) => this.emit("resize", { id });
+  public notifySnapEnd = (id: string, snapPosition: SnapPosition) => {
+    this.emit("snapEnd", { id, snapPosition });
+  };
+
+  public snapWindow = (id: string, position: SnapPosition) => {
+    const win = this.windows.find(w => w.id === id);
+    if (!win) return;
+
+    if (!win.preMaximizedRect) {
+      win.preMaximizedRect = { ...win.currentProps.rect };
+    }
+
+    if (position === "top") {
+      this.maximizeWindow(id);
+      return;
+    }
+
+    win.isMaximized = false;
+    let rect: WindowRect;
+
+    switch (position) {
+      case "left":
+        rect = { left: 0, top: 0, width: 50, height: 100 }; break;
+      case "right":
+        rect = { left: 50, top: 0, width: 50, height: 100 }; break;
+      case "top-left":
+        rect = { left: 0, top: 0, width: 50, height: 50 }; break;
+      case "bottom-left":
+        rect = { left: 0, top: 50, width: 50, height: 50 }; break;
+      case "top-right":
+        rect = { left: 50, top: 0, width: 50, height: 50 }; break;
+      case "bottom-right":
+        rect = { left: 50, top: 50, width: 50, height: 50 }; break;
+      default: return;
+    }
+    this.updateWindow(id, { rect });
+  };
+
+  public notifyMoveStart = (id: string, rect?: WindowRect) => {
+    this.emit("moveStart", { id, rect });
+  };
+
+  public notifyMove = (id: string, rect?: WindowRect) => {
+    this.emit("move", { id, rect });
+  };
+
+  public notifyMoveEnd = (id: string) => {
+    this.syncWindowRect(id);
+    const win = this.windows.find((w) => w.id === id);
+    if (win && !win.isMinimized && !win.isClosing) {
+      this.updateWindow(id, { rect: win.currentProps.rect });
+    }
+    this.emit("moveEnd", { id, rect: win?.currentProps.rect });
+  };
+
+  public notifyResizeStart = (id: string, rect?: WindowRect) => {
+    this.emit("resizeStart", { id, rect });
+  };
+
+  public notifyResize = (id: string, rect?: WindowRect) => {
+    this.emit("resize", { id, rect });
+  };
+
   public notifyResizeEnd = (id: string) => {
     this.syncWindowRect(id);
-    this.emit("resizeEnd", { id });
+    const win = this.windows.find((w) => w.id === id);
+    if (win && !win.isMinimized && !win.isClosing) {
+      this.updateWindow(id, { rect: win.currentProps.rect });
+    }
+    this.emit("resizeEnd", { id, rect: win?.currentProps.rect });
   };
 
   public subscribe = (callback: (windows: WindowState<T>[]) => void): (() => void) => {
@@ -230,12 +297,14 @@ export class WindowManager<T = undefined> {
     return (val / containerSize) * 100;
   }
 
+  public getPreMaximizedRect = (id: string): WindowRect | undefined => {
+    const win = this.windows.find(w => w.id === id);
+    return win?.preMaximizedRect;
+  }
+
   public getWindow = (id: string): WindowInstance<T> | undefined => {
     const win = this.windows.find((w) => w.id === id);
     if (!win) return undefined;
-
-    const currentRect = this.getCurrentRect(win);
-    const node = win.element.firstElementChild as HTMLElement;
 
     return {
       id: win.id,
@@ -271,11 +340,12 @@ export class WindowManager<T = undefined> {
       update: (options) => this.updateWindow(id, options),
       setTitle: (title) => this.updateWindow(id, { title }),
       setData: (data) => this.updateWindow(id, { customData: data }),
-      setRect: (rect, type = "%") => this.updateWindow(id, { rect, type }),
+      setRect: (rect, type = "%") => this.updateWindow(id, { rect: { ...rect, top: rect.top !== undefined ? functions.clamp(rect.top, 0, Infinity) : undefined }, type }),
       focus: () => this.bringToFront(id),
       minimize: () => this.minimizeWindow(id),
       toggleMaximize: () => this.toggleMaximize(id),
       close: () => this.closeWindow(id),
+      snapWindow: (position) => this.snapWindow(id, position),
       convertGlobalToLocal: this.globalToLocal,
       getContainerMetrics: this.getContainerMetrics,
     };

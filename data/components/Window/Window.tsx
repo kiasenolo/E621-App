@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import style from "./style.module.scss";
-import { WindowManager } from "./WindowManager";
+import { WindowManager, SnapPosition } from "./WindowManager";
 
 export type WindowRect = {
   width: number;
@@ -146,6 +146,9 @@ export default function Window({
     let isResizing = false;
 
     let capturedElement: HTMLElement | null = null;
+    let currentSnapPosition: SnapPosition | null = null;
+
+    let latestRect: WindowRect | undefined;
 
     const snapDist = 15;
     const minW = 600;
@@ -180,8 +183,9 @@ export default function Window({
           if (currentMaximized && (action === "move" || action === "alt-move")) {
             const { width: cW, height: cH } = manager.getContainerMetrics();
 
-            const restoreW = Math.min(800, cW * 0.8);
-            const restoreH = Math.min(600, cH * 0.8);
+            const preRect = (manager as any).getPreMaximizedRect?.(windowId);
+            const restoreW = preRect ? (preRect.width / 100) * cW : Math.min(800, cW * 0.8);
+            const restoreH = preRect ? (preRect.height / 100) * cH : Math.min(600, cH * 0.8);
 
             const currentMouseRatioX = localX / cW;
             clickOffsetX = currentMouseRatioX * restoreW;
@@ -207,6 +211,8 @@ export default function Window({
               height: (restoreH / cH) * 100,
             };
 
+            latestRect = pctRect;
+
             if ((manager as any).restoreWindow) {
               (manager as any).restoreWindow(windowId, pctRect);
             }
@@ -219,10 +225,10 @@ export default function Window({
 
           if (action === "move" || action === "alt-move") {
             isDragging = true;
-            manager.notifyMoveStart(windowId);
+            manager.notifyMoveStart(windowId, latestRect as any);
           } else {
             isResizing = true;
-            manager.notifyResizeStart(windowId);
+            manager.notifyResizeStart(windowId, latestRect as any);
           }
         } else {
           return;
@@ -258,11 +264,38 @@ export default function Window({
 
         if (newTop < 0) newTop = 0;
 
-        win.style.left = `${(newLeft / cw) * 100}%`;
-        win.style.top = `${(newTop / ch) * 100}%`;
+        const pctLeft = (newLeft / cw) * 100;
+        const pctTop = (newTop / ch) * 100;
+
+        win.style.left = `${pctLeft}%`;
+        win.style.top = `${pctTop}%`;
+
+        latestRect = {
+          left: pctLeft,
+          top: pctTop,
+          width: (currentW / cw) * 100,
+          height: (currentH / ch) * 100,
+        };
+
+        const EDGE = 20;
+        let newSnapPosition: SnapPosition | null = null;
+        if (localY <= EDGE && localX <= EDGE) newSnapPosition = "top-left";
+        else if (localY >= ch - EDGE && localX <= EDGE) newSnapPosition = "bottom-left";
+        else if (localY <= EDGE && localX >= cw - EDGE) newSnapPosition = "top-right";
+        else if (localY >= ch - EDGE && localX >= cw - EDGE) newSnapPosition = "bottom-right";
+        else if (localY <= EDGE) newSnapPosition = "top";
+        else if (localX <= EDGE) newSnapPosition = "left";
+        else if (localX >= cw - EDGE) newSnapPosition = "right";
+
+        if (newSnapPosition !== currentSnapPosition) {
+          currentSnapPosition = newSnapPosition;
+          if ((manager as any).notifySnapPreview) {
+            (manager as any).notifySnapPreview(windowId, currentSnapPosition);
+          }
+        }
 
         if (isDragging) {
-          manager.notifyMove(windowId);
+          manager.notifyMove(windowId, latestRect as any);
         }
         return;
       }
@@ -280,10 +313,21 @@ export default function Window({
         const finalLeft = centerX - newW / 2;
         const finalTop = centerY - newH / 2;
 
-        win.style.width = `${(newW / cw) * 100}%`;
-        win.style.height = `${(newH / ch) * 100}%`;
-        win.style.left = `${(finalLeft / cw) * 100}%`;
-        win.style.top = `${(finalTop / ch) * 100}%`;
+        const pctWidth = (newW / cw) * 100;
+        const pctHeight = (newH / ch) * 100;
+        const pctLeft = (finalLeft / cw) * 100;
+        const pctTop = (finalTop / ch) * 100;
+
+        win.style.width = `${pctWidth}%`;
+        win.style.height = `${pctHeight}%`;
+        win.style.left = `${pctLeft}%`;
+        win.style.top = `${pctTop}%`;
+
+        latestRect = { left: pctLeft, top: pctTop, width: pctWidth, height: pctHeight };
+
+        if (isResizing) {
+          manager.notifyResize(windowId, latestRect as any);
+        }
         return;
       }
 
@@ -364,20 +408,27 @@ export default function Window({
         finalTop = (startTop + startHeight) - effectiveH;
       }
 
-      win.style.width = `${(effectiveW / cw) * 100}%`;
-      win.style.height = `${(effectiveH / ch) * 100}%`;
+      const pctWidth = (effectiveW / cw) * 100;
+      const pctHeight = (effectiveH / ch) * 100;
+      const pctLeft = (finalLeft / cw) * 100;
+      const pctTop = (finalTop / ch) * 100;
+
+      win.style.width = `${pctWidth}%`;
+      win.style.height = `${pctHeight}%`;
 
       if (action.includes("w") || action.includes("move")) {
-        win.style.left = `${(finalLeft / cw) * 100}%`;
+        win.style.left = `${pctLeft}%`;
       } else {
-        win.style.left = `${(finalLeft / cw) * 100}%`;
+        win.style.left = `${pctLeft}%`;
       }
 
       if (action.includes("n")) {
-        win.style.top = `${(finalTop / ch) * 100}%`;
+        win.style.top = `${pctTop}%`;
       } else {
-        win.style.top = `${(finalTop / ch) * 100}%`;
+        win.style.top = `${pctTop}%`;
       }
+
+      latestRect = { left: pctLeft, top: pctTop, width: pctWidth, height: pctHeight };
 
       if (isResizing) {
         manager.notifyResize(windowId);
@@ -388,7 +439,21 @@ export default function Window({
       if (isDragging) {
         manager.notifyMoveEnd(windowId);
         isDragging = false;
+
+        if (currentSnapPosition) {
+          if ((manager as any).snapWindow) {
+            (manager as any).snapWindow(windowId, currentSnapPosition);
+          }
+          if ((manager as any).notifySnapEnd) {
+            (manager as any).notifySnapEnd(windowId, currentSnapPosition);
+          }
+          if ((manager as any).notifySnapPreview) {
+            (manager as any).notifySnapPreview(windowId, null);
+          }
+          currentSnapPosition = null;
+        }
       }
+
       if (isResizing) {
         manager.notifyResizeEnd(windowId);
         isResizing = false;
@@ -441,6 +506,14 @@ export default function Window({
       startTop = win.offsetTop;
       startWidth = win.offsetWidth;
       startHeight = win.offsetHeight;
+
+      const { width: cw, height: ch } = manager.getContainerMetrics();
+      latestRect = {
+        left: (startLeft / cw) * 100,
+        top: (startTop / ch) * 100,
+        width: (startWidth / cw) * 100,
+        height: (startHeight / ch) * 100
+      };
 
       const localPos = manager.globalToLocal(e.clientX, e.clientY);
       startX = localPos.left;
@@ -586,15 +659,14 @@ export default function Window({
             ))}
           </div>
 
-          {canResize &&
-            ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((d) => (
-              <div
-                key={d}
-                data-resize-dir={d}
-                data-resize-type="standard"
-                className={`${style["handle"]} ${style[d]}`}
-              />
-            ))}
+          {canResize && ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((d) => (
+            <div
+              key={d}
+              data-resize-dir={d}
+              data-resize-type="standard"
+              className={`${style["handle"]} ${style[d]}`}
+            />
+          ))}
         </>
       )}
     </div>

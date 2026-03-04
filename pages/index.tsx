@@ -1,20 +1,519 @@
 import { useCallback, useEffect, useRef, useState, useMemo, RefObject, ReactNode, MouseEventHandler, Dispatch, SetStateAction, JSX } from "react";
 import style from "./style.module.scss";
 import { LABS_E621_API } from "@/pages/api/_LABS/E621-API/_API-LIST";
-import { WindowInstance, WindowManager, WindowSnapshot } from "@/data/components/Window/WindowManager";
+import { SnapPosition, WindowInstance, WindowManager, WindowSnapshot } from "@/data/components/Window/WindowManager";
 import { _app, Kiasole, newInput } from "@/pages/_app";
 import { E621 } from "@/pages/api/_LABS/E621-API/types/e621";
 import { Button } from "./components/Button";
 import useLocalStorage, { SetValue } from "@/data/module/use/LocalStorage";
 import { WindowRect } from "@/data/components/Window/Window";
 import { makeQuery } from "@/pages/api/_LABS/E621-API/lib/e621-core";
-import { cloneDeep } from "lodash";
+import { cloneDeep, merge } from "lodash";
 import functions from "@/data/module/functions";
 import Viewer from "@/data/components/Viewer";
 import KiloDown from "@/data/components/KiloDown";
 import React from "react";
 
-let userIndex = 0
+/*
+ * 這個 是一個 個人專案
+ * 密碼明文存 是十分正常的一件事情
+ * 我也知道不安全 只是 現階段 他還在開發
+ * 所以 yap 別跟我談加密 別跟我談哈希
+ * 別跟我談任何安全性相關的東西 現階段 這個東西不重要
+ * 僅個人學習以及使用
+ */
+
+const langList = {
+  "en-us": {
+
+    "NAME": "English (US)",
+    "NOTIC": "Changing the language will restart all windows",
+
+    /* >:System: */
+
+    /* Desktop */
+    "Desktop.drag.Cancel": "Cancel",
+
+
+    /* startMenuSide */
+    "startMenuSide.logout": "Logout",
+    "startMenuSide.appSetting": "App Setting",
+    "startMenuSide.console": "Console",
+
+    /* Taskbar */
+    "taskBar.startMenu": "Start Menu",
+
+    /* <:System: */
+
+
+    /* >:menuButton: */
+
+    /* Window */
+    "menuButton.top.Window": "Window",
+    "menuButton.RestoreParentWindow": "Restore Parent Window",
+    "menuButton.Clone": "Clone Window",
+    "menuButton.Restore": "Restore",
+    "menuButton.Minimize": "Minimize",
+    "menuButton.Close": "Close",
+
+    "menuButton.ResetRect": "Reset Rect $1%",
+
+    /* Data */
+    "menuButton.top.Data": "Data",
+    "menuButton.Reload": "Reload",
+    "menuButton.ClearAll": "CLEAR ALL",
+
+    /* Other */
+    "menuButton.top.Other": "Other",
+    "menuButton.SaveToTmp": "Save To Tmp",
+    "menuButton.CopyRawJson": "Copy Raw Json",
+    "menuButton.CopyID": "Copy ID",
+    "menuButton.OpenWithBrowser": "Open With Browser",
+    "menuButton.OpenWithViewer": "Open With Viewer",
+    "menuButton.OpenWithGetByID": "Open With Get By ID",
+    "menuButton.SetAsWallpaper": "Set As Wallpaper",
+    "menuButton.SetAsAvatar": "Set As Avatar",
+
+    /* Setting */
+    "menuButton.top.Category": "Category",
+    "menuButton.top.Tab": "Tab",
+
+    /* <:menuButton: */
+
+
+    /* >:WindowsType: */
+
+    "windowsType.postSearch": "Post Search",
+    /* postSearch */
+
+    "windowsType.postSearch.page": "Page $1",
+
+    "windowsType.postSearch.jumpToPage": "Jump To Page",
+    "windowsType.postSearch.jumpToPage.Cancel": "<-- Cancel",
+    "windowsType.postSearch.jumpToPage.Apply": "Apply -->",
+
+    "windowsType.postSearch.filter": "Filter",
+
+    "windowsType.postSearch.filter.rating": "Rating",
+
+    "windowsType.postSearch.filter.rating.s": "Safe",
+    "windowsType.postSearch.filter.rating.q": "Questionable",
+    "windowsType.postSearch.filter.rating.e": "Explicit",
+
+    "windowsType.postSearch.filter.type": "Type",
+
+    "windowsType.postSearch.filter.type.vid": "Video",
+    "windowsType.postSearch.filter.type.gif": "GIF",
+    "windowsType.postSearch.filter.type.pic": "Image",
+
+    "windowsType.postSearch.filter.sortBy": "Sort by",
+
+    "windowsType.postSearch.filter.sortBy.newest": "Newest",
+    "windowsType.postSearch.filter.sortBy.score": "Score",
+    "windowsType.postSearch.filter.sortBy.favs": "Favs",
+    "windowsType.postSearch.filter.sortBy.size": "Size",
+
+    "windowsType.postSearch.filter.sortBy.reverse": "Reverse Sort",
+
+    /* postSearch */
+
+
+    "windowsType.post": "Post",
+    "windowsType.postGetByID": "Post Get By ID",
+    "windowsType.pool": "Pool",
+
+    "windowsType.viewer": "Viewer",
+    /* viewer */
+    "windowsType.viewer.ResetTransform": "Reset Transform",
+
+    "windowsType.viewer.RanderMode": "Rander Mode : ",
+    "windowsType.viewer.RanderMode.Auto": "Auto",
+    "windowsType.viewer.RanderMode.Pixelated": "Pixelated",
+    /* viewer */
+
+
+    "windowsType.setting": "Setting",
+    "windowsType.tmpList": "Temp List",
+
+    /* <:WindowsType: */
+
+
+    /* >:components.post: */
+
+    "components.post.Artists": "Artists",
+    "components.post.Copyrights": "Copyrights",
+    "components.post.Character": "Character",
+    "components.post.Species": "Species",
+    "components.post.General": "General",
+    "components.post.Meta": "Meta",
+    "components.post.Lore": "Lore",
+    "components.post.Source": "Source",
+    "components.post.Information": "Information",
+
+    "components.post.info.Size": "Size",
+    "components.post.info.Type": "Type",
+    "components.post.info.Rating": "Rating",
+    "components.post.info.Score": "Score",
+    "components.post.info.Favs": "Favs",
+    "components.post.info.Posted": "Posted",
+
+    "components.post.parent": "Parent : ",
+    "components.post.children": "Child : ",
+    "components.post.pool": "Pool : ",
+    "components.post.moreThenOne": "More then one, total $1",
+
+    /* <:components.post: */
+
+
+    /* >:setting: */
+
+    "setting.Back": "<- Back",
+    "setting.Home": "Home",
+
+    /* Search */
+    "setting.Search": "Search",
+    "setting.Search.general": "General",
+    "setting.Search.tags": "Tags",
+    "setting.Search.history": "History",
+    "setting.Search.export/import": "Export/Import",
+
+    /* Account */
+    "setting.Account": "Account",
+
+    /* .local */
+    "setting.Account.local": "Local",
+    "setting.Account.local.changePassword": "If you want, you can change your password",
+    "setting.Account.local.changePassword.current": "Current Password",
+    "setting.Account.local.changePassword.new": "New Password",
+    "setting.Account.local.changePassword.newAgain": "New Password Again",
+    "setting.Account.local.changePassword.update": "Update Password",
+    "setting.Account.local.changePassword.remove": "Remove Password",
+    "setting.Account.local.changePassword.notic.noMatch": "Doesn't match your current password .w.",
+    "setting.Account.local.changePassword.notic.newNoMatch": "The new passwords don't match .w.",
+    "setting.Account.local.changePassword.pop.areYouSure": "Are you sure you want to remove your password?",
+    "setting.Account.local.changePassword.pop.yes": "Remove it",
+    "setting.Account.local.changePassword.pop.no": "Cancel",
+    "setting.Account.local.changePassword.pop.hasGone": "Alright, your password is gone",
+    "setting.Account.local.changePassword.pop.hasChange": "Alright, your password has been changed",
+
+    "setting.Account.local.setPassword": "I recommend you can set a password",
+    "setting.Account.local.setPassword.new": "New Password",
+    "setting.Account.local.setPassword.setPass": "Set Password",
+    "setting.Account.local.setPassword.pop.success": "You successfully set a password for your account. Great!",
+
+    "setting.Account.local.deleteAccount": "Delete Account",
+    "setting.Account.local.deleteAccount.1": "Are you sure you want to delete this account?",
+    "setting.Account.local.deleteAccount.1.yes": "Yes, I am",
+    "setting.Account.local.deleteAccount.1.no": "Not now",
+    "setting.Account.local.deleteAccount.2": "Everything will be gone.\nYour downloads, temp list, and history will all be deleted.",
+    "setting.Account.local.deleteAccount.2.yes": "Yes, delete it",
+    "setting.Account.local.deleteAccount.2.no": "Wait, never mind",
+    "setting.Account.local.deleteAccount.3": "Do you really not care if all this disappears?",
+    "setting.Account.local.deleteAccount.3.yes": "Just delete it",
+    "setting.Account.local.deleteAccount.3.no": "I actually do care, cancel",
+    /* .local */
+
+    /* .avatar */
+    "setting.Account.avatar": "Avatar",
+    "setting.Account.avatar.set": "Set as Avatar",
+    "setting.Account.avatar.apply": "Apply",
+    "setting.Account.avatar.source": "Picture Source",
+    /* .avatar */
+
+    "setting.Account.e621": "E621",
+    "setting.Account.language": "Language",
+    "setting.Account.export/import": "Export/Import",
+
+    /* Download */
+    "setting.Download": "Download",
+    "setting.Download.general": "General",
+    "setting.Download.history": "History",
+    "setting.Download.export/import": "Export/Import",
+
+
+    /* Appearance */
+    "setting.Appearance": "Appearance",
+    "setting.Appearance.general": "General",
+    "setting.Appearance.theme": "Theme",
+
+    /* .wallpaper */
+    "setting.Appearance.wallpaper": "Wallpaper",
+    "setting.Appearance.wallpaper.set": "Set as Wallpaper",
+    "setting.Appearance.wallpaper.apply": "Apply",
+    "setting.Appearance.wallpaper.source": "Picture Source",
+    /* .wallpaper */
+
+
+    /* Information */
+    "setting.Information": "Information",
+
+    /* .general */
+    "setting.Information.general": "General",
+    "setting.Information.general.line.1": [
+      "Experience E621 in a windowed, OS-style interface.",
+      "It was a blast. Let's never do it again.",
+    ],
+    "setting.Information.general.line.2": [
+      "Building this was actually a lot of fun,",
+      "Even though it was honestly a pain to code.",
+      "But at least, I made it happen.",
+      "Intuitive interactions, intuitive logic,",
+      "And performance-heavy animations—yeah, peak design.",
+      "Anyway, I guess this finally fulfills my 'KILO OS' dream.",
+      "I don't know. It is what it is.",
+      "Oh right, a friend said this to me, but I have to share it:",
+      "I seem to be coding an E621 client as if it were professional-grade software.",
+    ],
+    "setting.Information.general.repoLink": "Repo Link",
+    /* .general */
+
+
+    /* <:setting: */
+  },
+  "zh-tw": {
+
+    "NAME": "繁體中文",
+    "NOTIC": "切語言的時候會重開所有視窗",
+
+    /* >:System: */
+
+    /* Desktop */
+    "Desktop.drag.Cancel": "取消",
+
+    /* startMenuSide */
+    "startMenuSide.logout": "登出",
+    "startMenuSide.appSetting": "設定",
+    "startMenuSide.console": "控制臺",
+
+    /* Taskbar */
+    "taskBar.startMenu": "開始選單",
+
+    /* <:System: */
+
+
+    /* >:menuButton: */
+
+    /* Window */
+    "menuButton.top.Window": "視窗",
+    "menuButton.RestoreParentWindow": "把老爸叫回來",
+    "menuButton.Clone": "複製視窗",
+    "menuButton.Restore": "還原",
+    "menuButton.Minimize": "最小化",
+    "menuButton.Close": "關閉",
+
+    "menuButton.ResetRect": "重設位置和大小 $1%",
+
+
+    /* Data */
+    "menuButton.top.Data": "資料",
+    "menuButton.Reload": "重新獲取",
+    "menuButton.ClearAll": "全部清空",
+
+    /* Other */
+    "menuButton.top.Other": "其他",
+    "menuButton.SaveToTmp": "存到暫存區",
+    "menuButton.CopyRawJson": "複製原始JSON",
+    "menuButton.CopyID": "複製ID",
+    "menuButton.OpenWithBrowser": "在瀏覽器中開啓",
+    "menuButton.OpenWithViewer": "在圖片檢視器中開啓",
+    "menuButton.OpenWithGetByID": "在從ID抓作品中開啓",
+    "menuButton.SetAsWallpaper": "設成桌布",
+    "menuButton.SetAsAvatar": "設成頭貼",
+
+    /* Setting */
+    "menuButton.top.Category": "類別",
+    "menuButton.top.Tab": "分頁",
+
+    /* <:menuButton: */
+
+    /* >:WindowsType: */
+
+    "windowsType.postSearch": "作品搜尋",
+
+    /* postSearch */
+    "windowsType.postSearch.page": "第 $1 頁",
+
+    "windowsType.postSearch.jumpToPage": "跳轉至頁",
+    "windowsType.postSearch.jumpToPage.Cancel": "<-- 算了",
+    "windowsType.postSearch.jumpToPage.Apply": "套用 -->",
+
+    "windowsType.postSearch.filter": "篩選器",
+
+    "windowsType.postSearch.filter.rating": "分級",
+    "windowsType.postSearch.filter.rating.s": "安全",
+    "windowsType.postSearch.filter.rating.q": "可疑",
+    "windowsType.postSearch.filter.rating.e": "限制級",
+
+    "windowsType.postSearch.filter.type": "類型",
+
+    "windowsType.postSearch.filter.type.vid": "影片",
+    "windowsType.postSearch.filter.type.gif": "動圖",
+    "windowsType.postSearch.filter.type.pic": "圖片",
+
+    "windowsType.postSearch.filter.sortBy": "排序方式",
+
+    "windowsType.postSearch.filter.sortBy.newest": "最新",
+    "windowsType.postSearch.filter.sortBy.score": "分數",
+    "windowsType.postSearch.filter.sortBy.favs": "喜歡數",
+    "windowsType.postSearch.filter.sortBy.size": "大小",
+
+    "windowsType.postSearch.filter.sortBy.reverse": "反轉排序",
+    /* postSearch */
+
+    "windowsType.post": "作品",
+    "windowsType.postGetByID": "從ID抓作品",
+    "windowsType.pool": "圖池",
+
+    "windowsType.viewer": "檢視器",
+    /* viewer */
+    "windowsType.viewer.ResetTransform": "重置縮放和位置",
+
+    "windowsType.viewer.RanderMode": "渲染模式 : ",
+    "windowsType.viewer.RanderMode.Auto": "自動",
+    "windowsType.viewer.RanderMode.Pixelated": "像素化",
+    /* viewer */
+
+    "windowsType.setting": "設定",
+    "windowsType.tmpList": "暫存區",
+
+    /* <:WindowsType: */
+
+    /* >:components.post: */
+
+    "components.post.Artists": "繪師",
+    "components.post.Copyrights": "版權",
+    "components.post.Character": "角色",
+    "components.post.Species": "物種",
+    "components.post.General": "主要",
+    "components.post.Meta": "其他",
+    "components.post.Lore": "世界觀",
+    "components.post.Source": "來源",
+    "components.post.Information": "詳細資料",
+
+    "components.post.info.Size": "大小",
+    "components.post.info.Type": "類型",
+    "components.post.info.Rating": "分級",
+    "components.post.info.Score": "分數",
+    "components.post.info.Favs": "喜歡數",
+    "components.post.info.Posted": "日期",
+
+    /* 補齊部分 */
+
+    "components.post.parent": "母作品 : ",
+    "components.post.children": "子作品 : ",
+    "components.post.pool": "圖池 : ",
+    "components.post.moreThenOne": "超過一個 總計 $1 個",
+
+    /* <:components.post: */
+
+
+    /* >:setting: */
+
+    "setting.Back": "<- 返回",
+    "setting.Home": "主頁",
+
+    /* Search */
+    "setting.Search": "搜尋",
+    "setting.Search.general": "主要",
+    "setting.Search.tags": "標簽",
+    "setting.Search.history": "歷史",
+    "setting.Search.export/import": "導入/導出",
+
+    /* Account */
+    "setting.Account": "賬號",
+
+    "setting.Account.local": "本機",
+    "setting.Account.local.changePassword": "如果你想的話 你可以改掉你的密碼",
+    "setting.Account.local.changePassword.current": "你目前的密碼",
+    "setting.Account.local.changePassword.new": "新的密碼",
+    "setting.Account.local.changePassword.newAgain": "再打一次新的",
+    "setting.Account.local.changePassword.update": "更新密碼",
+    "setting.Account.local.changePassword.remove": "移除密碼",
+    "setting.Account.local.changePassword.notic.noMatch": "跟你現在的密碼對不上.w.",
+    "setting.Account.local.changePassword.notic.newNoMatch": "你下面兩個密碼對不上.w.",
+    "setting.Account.local.changePassword.pop.areYouSure": "你確定你要把密碼解掉？",
+    "setting.Account.local.changePassword.pop.yes": "解掉",
+    "setting.Account.local.changePassword.pop.no": "算了",
+    "setting.Account.local.changePassword.pop.hasGone": "好你密碼沒了",
+    "setting.Account.local.changePassword.pop.hasChange": "好你密碼改了",
+    "setting.Account.local.setPassword": "建議你可以設定個密碼",
+    "setting.Account.local.setPassword.new": "你的新密碼",
+    "setting.Account.local.setPassword.setPass": "設定密碼",
+    "setting.Account.local.setPassword.pop.success": "你成功給你賬號設了個密碼 真好",
+    "setting.Account.local.deleteAccount": "刪賬號",
+    "setting.Account.local.deleteAccount.1": "你確定你要砍掉這個賬號？",
+    "setting.Account.local.deleteAccount.1.yes": "是沒錯",
+    "setting.Account.local.deleteAccount.1.no": "先不要",
+    "setting.Account.local.deleteAccount.2": "你現在的所有東西都會直接無\n你的下載 你的暫存 你的歷史 都會無",
+    "setting.Account.local.deleteAccount.2.yes": "啊對 就是要刪",
+    "setting.Account.local.deleteAccount.2.no": "啊？那算了",
+    "setting.Account.local.deleteAccount.3": "你真的不在乎這些東西會消失？",
+    "setting.Account.local.deleteAccount.3.yes": "刪掉吧",
+    "setting.Account.local.deleteAccount.3.no": "還是會care的 那算了",
+
+    "setting.Account.avatar": "頭貼",
+    "setting.Account.avatar.set": "設成頭貼",
+    "setting.Account.avatar.apply": "套用",
+    "setting.Account.avatar.source": "頭貼來源",
+
+
+    "setting.Account.e621": "E621",
+
+
+    "setting.Account.language": "語言",
+
+
+    "setting.Account.export/import": "導入/導出",
+
+
+
+    /* Download */
+    "setting.Download": "下載",
+    "setting.Download.general": "主要",
+    "setting.Download.history": "歷史",
+    "setting.Download.export/import": "導入/導出",
+
+
+    /* Appearance */
+    "setting.Appearance": "外觀",
+    "setting.Appearance.general": "主要",
+    "setting.Appearance.theme": "主題",
+
+    /* .wallpaper */
+    "setting.Appearance.wallpaper": "桌布",
+    "setting.Appearance.wallpaper.set": "設成桌布",
+    "setting.Appearance.wallpaper.apply": "討厭",
+    "setting.Appearance.wallpaper.source": "桌布來源",
+    /* .wallpaper */
+
+
+    /* Information */
+    "setting.Information": "關於",
+    "setting.Information.general": "主要",
+    "setting.Information.general.line.1": [
+      "用視窗化的方式 來用你的E621",
+      "十分好玩 下次別玩了",
+    ],
+    "setting.Information.general.line.2": [
+      "寫這個東西 還是很開心的",
+      "雖然 真的有夠難寫",
+      "但是起碼 我做到了",
+      "直覺的交互 直覺的邏輯",
+      "還有吃效能的動畫 欸十分好",
+      "反正 就 也算是圓了一個KILO OS的夢吧",
+      "我不知道 反正 就這樣",
+      "哦對了 雖然 這句是我朋友講的 但我還是要講",
+      "就 額 就 我好像真的把E621當專業軟體在寫欸",
+    ],
+    "setting.Information.general.repoLink": "倉庫鏈接",
+
+
+    /* <:setting: */
+
+  },
+}
+
+let usrIndx = 0
 
 let wmRef: RefObject<WindowManager<e621Type.defaul> | null>;
 
@@ -37,21 +536,66 @@ namespace e621Type {
       }
     }
 
-    export type post = {
-      type: "post"
-      data: E621.Post
-    }
-
     export type postSearch = {
       type: "postSearch"
       thisWindow?: WindowInstance<e621Type.defaul>
       data: e621Type.window.dataType.postSearch
     }
 
+    export type post = {
+      type: "post"
+      data: E621.Post
+    }
+
+    export type postId = {
+      type: "postId"
+      data: number
+    }
+
+    export type postImage = {
+      type: "postImg"
+      data: E621.Post
+    }
+
+
+    export type pool = {
+      type: "pool"
+      thisWindow?: WindowInstance<e621Type.defaul>
+      data: e621Type.window.dataType.pool
+    }
+
+    export type poolId = {
+      type: "poolId"
+      data: number
+    }
+
+
+    export type setting = {
+      type: "setting",
+      data: window.dataType.setting
+    }
+
+    export type temp = {
+      type: "temp",
+      data: undefined
+    }
+
+    export type text = {
+      type: "text",
+      data: string
+    }
+
     export type defaul =
       | tag
-      | post
       | postSearch
+      | post
+      | postId
+      | postImage
+      | pool
+      | poolId
+      | setting
+      | temp
+      | text
 
   }
 
@@ -59,10 +603,26 @@ namespace e621Type {
 
     export namespace dataType {
 
+      export type searchFilter = {
+        rating?: {
+          s: boolean,
+          q: boolean,
+          e: boolean,
+        },
+        sortBy?: "newest" | "score" | "favs" | "size",
+        reverse?: boolean,
+        type?: {
+          vid: boolean,
+          gif: boolean,
+          pic: boolean,
+        }
+      }
+
       export type postSearch = {
         nowPage: number,
         pageCache: { [x: number]: E621.Post[] },
         searchTags: string[],
+        searchFilter?: searchFilter
       }
 
       export type pool = {
@@ -91,7 +651,9 @@ namespace e621Type {
           ],
           account: [
             "local",
+            "avatar",
             "e621",
+            "language",
             "export/import",
           ],
           download: [
@@ -122,7 +684,9 @@ namespace e621Type {
           categorie: "account",
           pages:
           | "local"
+          | "avatar"
           | "e621"
+          | "language"
           | "export/import"
         }
 
@@ -184,6 +748,12 @@ namespace e621Type {
           title: string
           componentType: "postSearch"
           customData: postSearch
+        } | {
+          windowID: string
+          rect: WindowRect
+          title: string
+          componentType: "pool"
+          customData: pool
         }
       }
     }
@@ -479,8 +1049,8 @@ namespace workSpaceType {
         avatar: BaseItem.Image;
         passKey?: string;
         e621?: {
-          name: string;
-          key: string;
+          name?: string;
+          key?: string;
         };
       };
       loginStatus?: {
@@ -489,6 +1059,7 @@ namespace workSpaceType {
     }
 
     export type Setting = {
+      lang: string
       search: {
         ratingLimit: {
           s: boolean,
@@ -587,6 +1158,22 @@ const someActions = {
       const _ = cloneDeep(prev)
 
       _.userList[userIndex].setting.appearance.wallpaper = {
+        url,
+        positionX: 50,
+        positionY: 50,
+        fromPost: post
+      }
+
+      return _
+    })
+
+  },
+  setAvatar: (userIndex: number, url: string, post?: E621.Post,) => {
+
+    setWorkSpaceStatus(prev => {
+      const _ = cloneDeep(prev)
+
+      _.userList[userIndex].saveInfo.user.avatar = {
         url,
         positionX: 50,
         positionY: 50,
@@ -822,6 +1409,7 @@ const cnvFormat = {
 }
 
 const dragItem = (e: React.DragEvent, item: e621Type.DragItemType.defaul, ext?: object) => {
+  if (item.type === "text") { e.dataTransfer.setData("text/plain", item.data); return; };
   e.dataTransfer.setData(e621Type.DragItemType.appname, JSON.stringify(item));
 
   let url = "";
@@ -837,6 +1425,22 @@ const dragItem = (e: React.DragEvent, item: e621Type.DragItemType.defaul, ext?: 
       url = "https://e621.net/posts/" + item.data.id;
       break;
     };
+    case "postId": {
+      url = "https://e621.net/posts/" + item.data;
+      break;
+    };
+    case "postImg": {
+      url = item.data.file.url!;
+      break;
+    };
+    case "pool": {
+      url = "https://e621.net/pools/" + item.data.poolId;
+      break;
+    };
+    case "postId": {
+      url = "https://e926.net/pools/" + item.data;
+      break;
+    };
     case "postSearch": {
       url = "https://e621.net/posts?" + makeQuery({ tags: item.data.searchTags.join(" ") });
       break;
@@ -844,7 +1448,110 @@ const dragItem = (e: React.DragEvent, item: e621Type.DragItemType.defaul, ext?: 
   };
 
   e.dataTransfer.setData("text/uri-list", url + makeQuery(ext ?? {}))
+  e.dataTransfer.setData("text/plain", url + makeQuery(ext ?? {}));
 }
+
+const menuBtn = {
+  copyJSON: (data?: object) => {
+    return data ? [[
+      t("menuButton.CopyRawJson", usrIndx),
+      () => {
+        navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+      },
+      {
+        type: "text",
+        data: JSON.stringify(data, null, 2),
+      },
+    ] as MenuAction.Item] : []
+  },
+  post: (post: E621.Post, urlQue?: object, mode?: "id" | "viewer") => {
+    return [
+      [
+
+        t("menuButton.OpenWithBrowser", usrIndx),
+        () => {
+          open(`https://e621.net/posts/${post.id}?${makeQuery(urlQue ?? {})}`)
+        },
+        {
+          type: "post",
+          data: post
+        }
+      ],
+      ...(mode !== "viewer" ? [[
+        t("menuButton.OpenWithViewer", usrIndx),
+        () => {
+          someActions.openWithViewer(post)
+        },
+        {
+          type: "postImg",
+          data: post
+        }
+      ]] : []),
+      ...(mode !== "id" ? [[
+        t("menuButton.OpenWithGetByID", usrIndx),
+        () => {
+          someActions.openWithGetByID(post)
+        },
+        {
+          type: "post",
+          data: post
+        }
+      ]] : []),
+      [
+        t("menuButton.SaveToTmp", usrIndx),
+        () => {
+          someActions.saveToTmp(usrIndx, {
+            type: "postGetByID",
+            data: {
+              currentId: post.id,
+              status: "success",
+              fetchedPost: post
+            }
+          }, `Post Get By ID [ ${post.id} ]`, `post_get_by_id-${post.id}`)
+        },
+        {
+          type: "post",
+          data: post
+        }
+      ],
+      [
+        t("menuButton.CopyID", usrIndx),
+        () => {
+          navigator.clipboard.writeText(post.id.toString())
+        },
+        {
+          type: "text",
+          data: post.id.toString()
+        }
+      ],
+      [
+        t("menuButton.SetAsWallpaper", usrIndx),
+        () => {
+          someActions.setAsWallpaper(usrIndx, post.file.url!, post)
+        }
+      ],
+      [
+        t("menuButton.SetAsAvatar", usrIndx),
+        () => {
+          someActions.setAvatar(usrIndx, post.file.url!, post)
+        }
+      ],
+      ...menuBtn.copyJSON(post),
+    ] as MenuAction.Item[]
+  }
+}
+
+type createWindow = (
+  wmRef: RefObject<WindowManager<e621Type.defaul> | null>,
+  customData: e621Type.defaul,
+  other?: {
+    id?: string,
+    left?: number;
+    top?: number;
+  }
+) => string | undefined;
+
+let createWindow: createWindow = () => "none";
 
 type EmptyAccountOption = {
   name: string,
@@ -867,13 +1574,14 @@ const EmptyAccount: ((option: EmptyAccountOption) => workSpaceType.User) = (opt:
         avatar: opt.avatar ?? {
           url: "/_SYSTEM/Images/root/avatar.png"
         },
-        passKey: opt.password,
+        passKey: opt.password, // 這東西只有我自己一個人用 絕對不會泄漏 忽略這一段
         e621: opt.e621
       },
       id: opt.id,
 
     },
     setting: {
+      lang: "en-us",
       search: {
         ratingLimit: {
           s: true,
@@ -925,6 +1633,26 @@ const defaultStatus: workSpaceType.defaul = DefaultCfg
 
 let [workSpaceStatus, setWorkSpaceStatus]: [workSpaceType.defaul, SetValue<workSpaceType.defaul>] = [defaultStatus, () => { }]
 let [isLogin, setIsLogin]: [boolean, Dispatch<SetStateAction<boolean>>] = [false, () => { }]
+
+const t = (key: keyof typeof langList['en-us'], userIndex: number) => {
+  const list = (langList as any)[workSpaceStatus.userList[userIndex].setting.lang]
+
+  if (list) {
+    const tt = list[key] ?? key;
+
+    return tt
+  } else {
+    return key.match(/\.([^.]+$)/)![1]
+  }
+};
+
+const e621Info = (workSpaceStatus: workSpaceType.defaul, usrIndx: number) => {
+  const { saveInfo } = workSpaceStatus.userList[usrIndx]
+  return (saveInfo.user.e621 && saveInfo.user.e621.name && saveInfo.user.e621.key ? {
+    name: saveInfo.user.e621.name,
+    key: saveInfo.user.e621.key,
+  } : undefined)
+}
 
 type MenuButtonType = [string, MenuAction.Item[]];
 
@@ -1041,7 +1769,10 @@ const Components = {
             onMouseDown={(event) => actionMenu(event, post)}
           >···</button>
         </div>
+      </div>
 
+      <div className={style["Ext"]}>
+        <div>{post.file.ext.toLocaleUpperCase()}</div>
       </div>
     </button>
   },
@@ -1066,6 +1797,32 @@ const Components = {
       return `${dat.getFullYear()}/${pad(dat.getMonth() + 1)}/${pad(dat.getDate())} ${pad(dat.getHours())}:${pad(dat.getMinutes())}`
     }
 
+    const postBtn = (id: number) => [
+      id.toString(),
+      () => createWindow(wmRef, { type: "postGetByID", data: { status: "loading", currentId: id } }),
+      { type: "postId", data: id }
+    ] as MenuAction.Item;
+
+    const poolBtn = (id: number) => [
+      id.toString(),
+      () => createWindow(wmRef, { type: "pool", data: { poolId: id, nowPage: 1, pageCache: [], } }),
+      { type: "poolId", data: id }
+    ] as MenuAction.Item;
+
+    const childsMenu = (
+      event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+      child: number[],
+      map: (e: number) => MenuAction.Item
+    ) => {
+      event.stopPropagation()
+      event.preventDefault()
+      const btn = event.currentTarget
+      const btnRect = btn.getBoundingClientRect()
+      const x = btnRect.top
+      const y = btnRect.left
+      MenuAction.showMenu(child.map(map), [x, y], "bl")
+    }
+
     return (<div
       ref={eRef}
       className={[style["Post"], start ? style["START"] : ""].join(" ")}
@@ -1073,13 +1830,13 @@ const Components = {
       <div className={style["Tags"]} >
         {
           ([
-            ["Artists", postData?.tags.artist],
-            ["Copyrights", postData?.tags.copyright],
-            ["Character", postData?.tags.character],
-            ["Species", postData?.tags.species],
-            ["General", postData?.tags.general],
-            ["Meta", postData?.tags.meta],
-            ["Lore", postData?.tags.lore],
+            [t("components.post.Artists", usrIndx), postData?.tags.artist],
+            [t("components.post.Copyrights", usrIndx), postData?.tags.copyright],
+            [t("components.post.Character", usrIndx), postData?.tags.character],
+            [t("components.post.Species", usrIndx), postData?.tags.species],
+            [t("components.post.General", usrIndx), postData?.tags.general],
+            [t("components.post.Meta", usrIndx), postData?.tags.meta],
+            [t("components.post.Lore", usrIndx), postData?.tags.lore],
             ["Source", undefined],
             ["Information", undefined],
           ] as [string, (string[] | undefined)][])
@@ -1094,7 +1851,7 @@ const Components = {
                       transitionDelay: `${dely}s`
                     }}
                   >
-                    <span className={style["title"]}>{"Source"}</span>
+                    <span className={style["title"]}>{t("components.post.Source", usrIndx)}</span>
                     <div className={style["src"]}>
                       {
                         postData.sources.map((e, indx) => <a
@@ -1117,20 +1874,20 @@ const Components = {
                     transitionDelay: `${dely + (indx * .01)}s`
                   }}
                 >
-                  <span className={style["title"]}>{"Information"}</span>
+                  <span className={style["title"]}>{t("components.post.Information", usrIndx)}</span>
                   <div className={style["info"]}>
                     {
                       ([
                         ["ID", postData.id],
                         ["MD5", postData.file.md5],
-                        ["Size", `${postData.file.width}x${postData.file.height} (${postData.file.size})`],
-                        ["Type", postData.file.ext.toLocaleUpperCase()],
+                        [t("components.post.info.Size", usrIndx), `${postData.file.width}x${postData.file.height} (${(postData.file.size / 1024 / 1024).toFixed(2) + " MB"})`],
+                        [t("components.post.info.Type", usrIndx), postData.file.ext.toLocaleUpperCase()],
                         "CLIP",
-                        ["Rating", postData.rating.toLocaleUpperCase()],
-                        ["Score", postData.score.total],
-                        ["Faves", postData.fav_count],
+                        [t("components.post.info.Rating", usrIndx), postData.rating.toLocaleUpperCase()],
+                        [t("components.post.info.Score", usrIndx), postData.score.total],
+                        [t("components.post.info.Favs", usrIndx), postData.fav_count],
                         "CLIP",
-                        ["Posted", dateToString(postData.created_at)],
+                        [t("components.post.info.Posted", usrIndx), dateToString(postData.created_at)],
                       ] as ([string, string] | "CLIP")[]).map((e, indx) => {
                         if (e === "CLIP") {
                           return <>
@@ -1254,7 +2011,15 @@ const Components = {
             case "gif":
             case "webp":
               return <div className={style["Image"]}>
-                <Viewer className={style["Viewer"]}>
+                <Viewer
+                  className={style["Viewer"]}
+                  tTranslate={{
+                    "resetTransform": t("windowsType.viewer.ResetTransform", usrIndx),
+                    "randerMode": t("windowsType.viewer.RanderMode", usrIndx),
+                    "randerMode.auto": t("windowsType.viewer.RanderMode.Auto", usrIndx),
+                    "randerMode.pixelated": t("windowsType.viewer.RanderMode.Pixelated", usrIndx),
+                  }}
+                >
                   <img src={postData?.file.url!} />
                 </Viewer>
               </div>
@@ -1273,17 +2038,21 @@ const Components = {
           <button
             kiase-style=""
             onClick={() => {
-              open(postData?.file.url!)
+              someActions.openWithViewer(postData)
             }}
-          >{"View Raw"}</button>
+            draggable
+            onDragStart={(e) => {
+              dragItem(e, { type: "postImg", data: postData })
+            }}
+          >{t("menuButton.OpenWithViewer", usrIndx)}</button>
 
           <button
             kiase-style=""
-            onClick={() => {
-              someActions.setAsWallpaper(userIndex, postData?.file.url!, postData)
+            onClick={(e) => {
+              someActions.setAsWallpaper(usrIndx, postData?.file.url!, postData)
             }}
             style={{ marginLeft: "auto" }}
-          >{"Set as wallpaper"}</button>
+          >{t("menuButton.SetAsWallpaper", usrIndx)}</button>
 
           <button
             kiase-style=""
@@ -1292,7 +2061,13 @@ const Components = {
               if (thisWindow?.customData?.type === "post") {
                 const { parentData } = thisWindow?.customData?.data
                 if (parentData) {
-                  dragItem(e, { type: "post", data: postData }, parentData.customData.data.searchTags)
+                  let q = ""
+                  if (parentData.componentType === "postSearch") {
+                    q = parentData.customData.data.searchTags.join(" ")
+                  } else if (parentData.componentType === "pool") {
+                    q = `pool:${parentData.customData.data.poolId}`
+                  }
+                  dragItem(e, { type: "post", data: postData }, { q })
                 }
               } else {
                 dragItem(e, { type: "post", data: postData })
@@ -1302,14 +2077,90 @@ const Components = {
               if (thisWindow?.customData?.type === "post") {
                 const { parentData } = thisWindow?.customData?.data
                 if (parentData) {
-                  const q = parentData.customData.data.searchTags.join(" ")
+                  let q = ""
+                  if (parentData.componentType === "postSearch") {
+                    q = parentData.customData.data.searchTags.join(" ")
+                  } else if (parentData.componentType === "pool") {
+                    q = `pool:${parentData.customData.data.poolId}`
+                  }
                   open(`https://e621.net/posts/${postData?.id}?${makeQuery({ q })}`)
                 }
               } else if (thisWindow?.customData?.type === "postGetByID") {
                 open(`https://e621.net/posts/${postData?.id}`)
               }
             }}
-          >{"Open With Browser"}</button>
+          >{t("menuButton.OpenWithBrowser", usrIndx)}</button>
+        </div>
+
+        <div className={style["SubPost"]}>
+
+          <div>
+            {postData.relationships.parent_id ? ((prnt: number) => {
+              return <button
+                kiase-style=""
+                onClick={() => createWindow(wmRef, { type: "postGetByID", data: { status: "loading", currentId: prnt } })}
+                draggable
+                onDragStart={(e) => dragItem(e, { type: "postId", data: prnt })}
+              >{t("components.post.parent", usrIndx) + prnt}</button>
+            })(postData.relationships.parent_id)
+              : <div />}
+          </div>
+
+          <div>
+
+            {postData.relationships.children.length > 0 ? ((child: number[]) => {
+              const moreThenOne = child.length > 1
+              return <button
+                kiase-style=""
+                onClick={(e) => {
+                  if (moreThenOne) {
+                    childsMenu(e, child, postBtn)
+                  } else {
+                    createWindow(wmRef, { type: "postGetByID", data: { status: "loading", currentId: child[0] } })
+                  }
+                }}
+                onMouseDown={(e) => {
+                  if (moreThenOne) {
+                    childsMenu(e, child, postBtn)
+                  }
+                }}
+                draggable={!moreThenOne}
+                onDragStart={(e) => dragItem(e, { type: "postId", data: child[0] })}
+              >{
+                  t("components.post.children", usrIndx)
+                  +
+                  (moreThenOne ? t("components.post.moreThenOne", usrIndx).replace("$1", child.length) : child[0])}</button>
+            })(postData.relationships.children)
+              : <div />}
+          </div>
+
+          <div>
+            {postData.pools.length > 0 ? ((pool: number[]) => {
+              const moreThenOne = pool.length > 1
+              return <button
+                kiase-style=""
+                onClick={(e) => {
+                  if (moreThenOne) {
+                    childsMenu(e, pool, poolBtn)
+                  } else {
+                    createWindow(wmRef, { type: "pool", data: { poolId: pool[0], pageCache: [], nowPage: 1 } })
+                  }
+                }}
+                onMouseDown={(e) => {
+                  if (moreThenOne) {
+                    childsMenu(e, pool, poolBtn)
+                  }
+                }}
+                draggable={!moreThenOne}
+                onDragStart={(e) => dragItem(e, { type: "poolId", data: pool[0] })}
+              >{
+                  t("components.post.pool", usrIndx)
+                  +
+                  (moreThenOne ? t("components.post.moreThenOne", usrIndx).replace("$1", pool.length) : pool[0])}</button>
+            })(postData.pools)
+              : <div />}
+          </div>
+
         </div>
 
         <div className={style["Description"]}>
@@ -1500,22 +2351,16 @@ const WINDOW_FRAME = ({
 
 type windowProp = { id: string }
 
-export namespace windowsComponent {
-  export namespace setting {
-
-  }
-}
-
 const windowAction: (windowID: string, other?: MenuAction.Item[]) => MenuButtonType = (windowID, other) => [
-  "Window",
+  t("menuButton.top.Window", usrIndx),
   [
     ...other ?? [],
     [
-      "Minimize",
+      t("menuButton.Minimize", usrIndx),
       () => { wmRef.current?.minimizeWindow(windowID) }
     ],
     [
-      "Close",
+      t("menuButton.Close", usrIndx),
       () => { wmRef.current?.closeWindow(windowID) }
     ]
   ],
@@ -1534,59 +2379,165 @@ const windowsType = {
     const [page, setPage] = useState<number>(savedData?.nowPage ?? 1);
     const [searchTags, setSearchTags] = useState<string[]>(savedData?.searchTags ?? ["yonkagor", "webm"]);
     const [searchTagsInput, setSearchTagsInput] = useState<string[]>(searchTags);
-    const [searchRating, setSearchRating] = useState<string[]>([]);
 
     const [postsCache, setPostsCache] = useState<PostsCache>(savedData?.pageCache ?? {});
     const [jupToPage, setJupToPage] = useState<boolean>(false);
     const [jupPage, setJupPage] = useState<number>(1);
+    const [searchFilter, setSearchFilter] = useState<e621Type.window.dataType.searchFilter>({});
+    const [filterPanel, setFilterPanel] = useState<boolean>(false);
 
     const [isFocuOnIt, setFocuOnIt] = useState<boolean>(false);
 
     const currentPosts = useMemo(() => postsCache[page] || [], [postsCache, page]);
 
-    const fetchingPages = useRef<Set<number>>(new Set());
+    const processedPosts = useMemo(() => {
+      let result = [...currentPosts];
+
+      const { s, q, e } = searchFilter.rating ?? {};
+      if (s || q || e) {
+        result = result.filter(post => {
+          if (post.rating === "s") return s;
+          if (post.rating === "q") return q;
+          if (post.rating === "e") return e;
+          return false;
+        });
+      }
+
+      const { vid, gif, pic } = searchFilter.type ?? {};
+      if (vid || gif || pic) {
+        result = result.filter(post => {
+          const ext = post.file.ext;
+          if (vid && (ext === "webm" || ext === "mp4")) return true;
+          if (gif && ext === "gif") return true;
+          if (pic && (ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp")) return true;
+          return false;
+        });
+      }
+
+      if (searchFilter.sortBy) {
+        result.sort((a, b) => {
+          switch (searchFilter.sortBy) {
+            case "score":
+              return b.score.total - a.score.total;
+            case "favs":
+              return b.fav_count - a.fav_count;
+            case "size":
+              return b.file.size - a.file.size;
+            case "newest":
+            default:
+              return b.id - a.id;
+          }
+        });
+      }
+
+      if (searchFilter.reverse) {
+        result.reverse();
+      }
+
+      return result;
+    }, [currentPosts, searchFilter]);
+
+    const [fetchId, setFetchId] = useState<number>(0);
+    const fetchIdRef = useRef<number>(0);
+    fetchIdRef.current = fetchId;
+
+    const postsCacheRef = useRef<PostsCache>(postsCache);
+    postsCacheRef.current = postsCache;
+
+    const fetchingPages = useRef<Set<string>>(new Set());
+    const fetchQueueRef = useRef<Promise<void>>(Promise.resolve());
 
     const scrollPage = useRef<HTMLDivElement>(null);
 
-    const fetchPageData = useCallback(async (targetPage: number) => {
-      if (postsCache[targetPage] || fetchingPages.current.has(targetPage)) {
-        return;
+    const fetchPageData = useCallback(async (targetPage: number, currentTags: string[], currentFetchId: number) => {
+      const pageKey = `${currentFetchId}-${targetPage}`;
+
+      if (postsCacheRef.current[targetPage] || fetchingPages.current.has(pageKey)) {
+        return false;
       }
 
-      fetchingPages.current.add(targetPage);
+      fetchingPages.current.add(pageKey);
 
-      try {
-        Kiasole.log(`[背景預取] 正在請求 API: 第 ${targetPage} 頁`);
-        const newPosts = await LABS_E621_API.posts.search({
-          tags: [...searchTags, ...searchRating],
-          page: targetPage,
-          limit: 75,
-          user: (workSpaceStatus.userList[userIndex].saveInfo.user.e621 ? {
-            name: workSpaceStatus.userList[userIndex].saveInfo.user.e621?.name!,
-            key: workSpaceStatus.userList[userIndex].saveInfo.user.e621?.key!,
-          } : undefined)
-        });
+      const task = async () => {
+        try {
+          if (currentFetchId !== fetchIdRef.current) {
+            Kiasole.log(`[背景預取] 丟棄過期請求 API (未發送): 第 ${targetPage} 頁`);
+            return;
+          }
 
-        setPostsCache((prev) => ({
-          ...prev,
-          [targetPage]: newPosts
-        }));
+          Kiasole.log(`[背景預取] 正在請求 API: 第 ${targetPage} 頁 (FetchID: ${currentFetchId})`);
+          const newPosts = await LABS_E621_API.posts.search({
+            tags: currentTags,
+            page: targetPage,
+            limit: 75,
+            user: e621Info(workSpaceStatus, usrIndx)
+          });
 
-      } catch (err) {
-        Kiasole.error(`第 ${targetPage} 頁抓取失敗 :` + err);
-      } finally {
-        fetchingPages.current.delete(targetPage);
-      }
-    }, [searchTags, searchRating, postsCache]);
+          if (currentFetchId !== fetchIdRef.current) {
+            Kiasole.log(`[背景預取] 丟棄過期請求 API: 第 ${targetPage} 頁`);
+            return;
+          }
+
+          setPostsCache((prev) => ({
+            ...prev,
+            [targetPage]: newPosts
+          }));
+
+        } catch (err) {
+          Kiasole.error(`第 ${targetPage} 頁抓取失敗 :` + err);
+        } finally {
+          fetchingPages.current.delete(pageKey);
+        }
+      };
+
+      fetchQueueRef.current = fetchQueueRef.current.then(task);
+      await fetchQueueRef.current;
+      return true;
+    }, []);
 
     useEffect(() => {
-      const savedCache = thisWindow?.customData?.type === "postSearch"
-        ? thisWindow.customData.data?.pageCache
-        : null;
+      let isCancelled = false;
+      const currentFetchId = fetchId;
+      const currentTags = searchTags;
 
-      if (savedCache && Object.keys(savedCache).length > 0) {
-        setPostsCache(savedCache);
+      const loadData = async () => {
+        const targetPages = [page, page + 1, page - 1, page + 2, page - 2]
+          .filter(p => p > 0);
+
+        for (const p of targetPages) {
+          if (isCancelled) break;
+          const fetched = await fetchPageData(p, currentTags, currentFetchId);
+          if (isCancelled) break;
+          if (fetched) {
+            await functions.timeSleep(1000);
+          }
+        }
+      };
+
+      loadData();
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [page, searchTags, fetchId, fetchPageData]);
+
+    useEffect(() => {
+      const { current: scpg } = scrollPage
+      if (scpg) {
+        scpg.scrollTo({ top: 0 })
       }
+    }, [page])
+
+    const refreshSearch = useCallback((newTags?: string[]) => {
+      setPostsCache({});
+      setPage(1);
+
+      if (newTags) {
+        setSearchTags(newTags);
+      }
+
+      fetchingPages.current.clear();
+      setFetchId(id => id + 1);
     }, []);
 
     useEffect(() => {
@@ -1596,17 +2547,938 @@ const windowsType = {
           data: {
             nowPage: page,
             pageCache: postsCache,
-            searchTags: searchTags,
+            searchTags,
+            searchFilter
           }
         });
       }
-    }, [page, postsCache, searchTags]);
+    }, [page, postsCache, searchTags, searchFilter]);
+
+    const handleNextPage = () => setPage(p => p + 1);
+    const handlePrevPage = () => setPage(p => Math.max(1, p - 1));
 
     useEffect(() => {
-      thisWindow?.setTitle(`Post Search [ ${searchTags.join(",")} ]`,)
-    }, [searchTags])
+      const keydown = (e: KeyboardEvent) => {
+        if (!wmRef.current?.getWindow(thisWindow.id)?.isFocused) return;
+        if (e.altKey) return;
+
+        switch (e.code) {
+          case "Escape": {
+            if (jupToPage) {
+              setJupToPage(false)
+            } else {
+              setFilterPanel(false)
+            }
+            break
+          }
+        }
+
+        if (jupToPage || isFocuOnIt) return;
+
+        switch (e.code) {
+          case "ArrowLeft": {
+            e.preventDefault()
+            setPage(e => e > 1 ? e - 1 : 1)
+            break
+          }
+          case "ArrowRight": {
+            e.preventDefault()
+            setPage(e => e + 1)
+            break
+          }
+        }
+        if (e.shiftKey) {
+          switch (e.code) {
+            case "KeyF": {
+              setFilterPanel(e => !e)
+              break
+            }
+
+            case "KeyJ": {
+              setJupToPage(e => !e)
+              break
+            }
+          }
+        }
+      }
+      document.addEventListener("keydown", keydown)
+
+      return () => {
+        document.removeEventListener("keydown", keydown)
+      }
+
+    }, [jupToPage, jupToPage, isFocuOnIt])
+
+    const actionMenu = (event: React.MouseEvent<HTMLButtonElement, MouseEvent>, post: E621.Post) => {
+      event.stopPropagation()
+      event.preventDefault()
+      const btn = event.currentTarget
+      const btnRect = btn.getBoundingClientRect()
+      const x = btnRect.bottom
+      const y = btnRect.left
+      MenuAction.showMenu(menuBtn.post(post, { q: searchTags.join(" ") }), [x, y])
+    }
+
+    const showLoading = !postsCache[page];
 
     useEffect(() => {
+      const statusOffset = 50
+      const offset = 200
+
+      let startPointX = 0
+      let startPointY = 0
+
+      let status: "NONE" | "X" | "Y" = "NONE"
+
+      let x = 0
+      let y = 0
+
+      const touchArea = scrollPage.current
+
+      if (jupToPage) return;
+
+      const onTouchStart = (e: TouchEvent) => {
+        if (!touchArea) return;
+
+        startPointX = e.touches[0].clientX
+        startPointY = e.touches[0].clientY
+      }
+
+      const onTouchMove = (e: TouchEvent) => {
+        if (!touchArea) return;
+
+        x = startPointX - e.touches[0].clientX
+        y = startPointY - e.touches[0].clientY
+
+        if (status === "X") e.preventDefault();
+
+        if (status === "Y") { x = 0; return; }
+
+        const transform = () => {
+          touchArea.style.transform = `translateX(${-1 * (x / 10)}px)`
+        }
+
+        if (x > offset) {
+          touchArea.style.opacity = ".5"
+          transform()
+        } else if (x < -offset) {
+          if (page === 1) return;
+          touchArea.style.opacity = ".5"
+          transform()
+        } else {
+          touchArea.style.opacity = ""
+          transform()
+        }
+
+        if (status !== "NONE") return;
+        if (x > statusOffset || x < -statusOffset) status = "X";
+        if (y > statusOffset || y < -statusOffset) status = "Y";
+      }
+
+      const onTouchEnd = () => {
+        if (!touchArea) return;
+
+        startPointX = 0;
+
+        if (x > offset) {
+          setPage(e => e + 1)
+          void touchArea.clientHeight
+        } else if (x < -offset) {
+          setPage(e => e > 1 ? e - 1 : 1)
+          void touchArea.clientHeight
+        }
+        touchArea.style.transform = ""
+        touchArea.style.opacity = ""
+
+        status = "NONE"
+      }
+
+      touchArea?.addEventListener("touchstart", onTouchStart)
+      touchArea?.addEventListener("touchmove", onTouchMove)
+      touchArea?.addEventListener("touchend", onTouchEnd)
+
+      return () => {
+        touchArea?.removeEventListener("touchstart", onTouchStart)
+        touchArea?.removeEventListener("touchmove", onTouchMove)
+        touchArea?.removeEventListener("touchend", onTouchEnd)
+      }
+
+    }, [jupToPage, page, scrollPage.current])
+
+    const JumpToPageOverlay = useMemo(() => {
+      const _ = ({
+        jupToPage,
+        jupPage,
+        setJupPage,
+        setJupToPage,
+        setPage
+      }: {
+        jupToPage: boolean,
+        jupPage: number,
+        setJupPage: (p: number) => void,
+        setJupToPage: (b: boolean) => void,
+        setPage: (p: number | ((prev: number) => number)) => void
+      }) => {
+        const touchAreaRef = useRef<HTMLDivElement>(null);
+        const backButtonRef = useRef<HTMLButtonElement>(null);
+        const backLineRef = useRef<HTMLDivElement>(null);
+        const applyButtonRef = useRef<HTMLButtonElement>(null);
+        const applyLineRef = useRef<HTMLDivElement>(null);
+        const inputRef = useRef<HTMLInputElement>(null);
+
+        useEffect(() => {
+          const offset = 200
+
+          let startPointX = 0
+          let x = 0
+
+          const touchArea = touchAreaRef.current
+          const backButton = backButtonRef.current
+          const backLine = backLineRef.current
+          const applyButton = applyButtonRef.current
+          const applyLine = applyLineRef.current
+
+          const isLoad = touchArea && backButton && backLine && applyButton && applyLine
+
+          if (!isLoad) return;
+          if (!jupToPage) return;
+
+          const onTouchStart = (e: TouchEvent) => {
+            startPointX = e.touches[0].clientX
+          }
+
+          const onTouchMove = (e: TouchEvent) => {
+            x = startPointX - e.touches[0].clientX
+
+            const _x = x / 7
+
+            if (x > 0) {
+              applyButton.style.transform = ""
+              applyLine.style.transform = ""
+
+              backButton.style.transform = `translateX(-${_x}px)`
+              backLine.style.transform = `translateX(-${_x}px)`
+            } else {
+              backButton.style.transform = ""
+              backLine.style.transform = ""
+
+              applyButton.style.transform = `translateX(${Math.abs(_x)}px)`
+              applyLine.style.transform = `translateX(${_x}px)`
+            }
+
+            if (x > offset) {
+              applyButton.style.opacity = ""
+              applyLine.style.opacity = ""
+              backButton.style.opacity = ".5"
+              backLine.style.opacity = ".5"
+            } else if (x < -offset) {
+              backButton.style.opacity = ""
+              backLine.style.opacity = ""
+              applyButton.style.opacity = ".5"
+              applyLine.style.opacity = ".5"
+            } else {
+              backButton.style.opacity = ""
+              backLine.style.opacity = ""
+              applyButton.style.opacity = ""
+              applyLine.style.opacity = ""
+            }
+
+          }
+
+          const onTouchEnd = (e: TouchEvent) => {
+            startPointX = 0
+
+            if (x > offset) {
+              setJupToPage(false)
+              backButton.click()
+            } else if (x < -offset) {
+              setJupToPage(false)
+              applyButton.click()
+            }
+
+            backButton.style.transform = ""
+            backLine.style.transform = ""
+            applyButton.style.transform = ""
+            applyLine.style.transform = ""
+            backButton.style.opacity = ""
+            backLine.style.opacity = ""
+            applyButton.style.opacity = ""
+            applyLine.style.opacity = ""
+          }
+
+          touchArea.addEventListener("touchstart", onTouchStart)
+          touchArea.addEventListener("touchmove", onTouchMove)
+          touchArea.addEventListener("touchend", onTouchEnd)
+
+          return () => {
+            touchArea.removeEventListener("touchstart", onTouchStart)
+            touchArea.removeEventListener("touchmove", onTouchMove)
+            touchArea.removeEventListener("touchend", onTouchEnd)
+          }
+
+        }, [jupToPage, jupPage, setJupToPage, setPage]);
+
+        useEffect(() => {
+          const input = inputRef.current
+          if (!input) return;
+          if (jupToPage) input.focus();
+          else input.blur()
+        }, [jupToPage]);
+
+        return (
+          <div ref={touchAreaRef} className={[style["JumpToPage"], jupToPage && style["show"]].join(" ")}>
+            <div className={style["Inner"]}>
+              <div className={style["Back"]}>
+                <button ref={backButtonRef} onClick={() => setJupToPage(false)}>{t("windowsType.postSearch.jumpToPage.Cancel", usrIndx)}</button>
+              </div>
+              <div className={[style["line"], style["top"]].join(" ")}><div ref={backLineRef} /></div>
+              <div className={style["Input"]}>
+                {t("windowsType.postSearch.jumpToPage", usrIndx)}
+                <input
+                  ref={inputRef}
+                  type="number"
+                  value={jupPage}
+                  onChange={(e) => setJupPage(+e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setPage(~~(jupPage < 0 ? 1 : jupPage));
+                      setJupToPage(false);
+                    }
+                  }}
+                />
+              </div>
+              <div className={[style["line"], style["bottom"]].join(" ")}><div ref={applyLineRef} /></div>
+              <div className={style["Apply"]}>
+                <button ref={applyButtonRef} onClick={() => {
+                  setPage(~~(jupPage < 0 ? 1 : jupPage));
+                  setJupToPage(false);
+                }}>{t("windowsType.postSearch.jumpToPage.Apply", usrIndx)}</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      return _
+    }, [])
+
+    return (
+      <>
+        <WINDOW_FRAME
+          className={style["postSearch"]}
+          menulist={[
+            windowAction(windowID, [[
+              t("menuButton.Clone", usrIndx),
+              () => {
+                createWindow(wmRef, thisWindow?.customData!)
+              },
+              thisWindow.customData?.type === "postSearch" ? {
+                type: "postSearch",
+                thisWindow,
+                data: thisWindow.customData.data
+              } : undefined
+            ]
+            ]), [
+              t("menuButton.top.Data", usrIndx),
+              [[
+                t("menuButton.Reload", usrIndx),
+                () => refreshSearch()
+              ],
+              ],
+            ], [
+              t("menuButton.top.Other", usrIndx),
+              [[
+                t("menuButton.SaveToTmp", usrIndx),
+                () => {
+                  someActions.saveToTmp(usrIndx, cloneDeep(wmRef.current!.getWindow(thisWindow.id!)!.customData!), thisWindow.title, windowID)
+                },
+                thisWindow.customData?.type === "postSearch" ? {
+                  type: "postSearch",
+                  thisWindow,
+                  data: thisWindow.customData.data
+                } : undefined
+              ],
+              ...menuBtn.copyJSON(currentPosts),
+              ],
+            ],
+          ]}
+
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={e => {
+            if (!e.dataTransfer) return;
+
+            const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
+
+            if (itemdata) {
+              const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
+              const { data, type } = item
+              if (type === "tag") {
+                let newTags = [...searchTagsInput];
+                switch (data.action) {
+                  case "+": {
+                    if (newTags.some(e => e === "-" + data.tag)) {
+                      newTags = newTags.filter(e => e !== "-" + data.tag)
+                    } else if (!newTags.some(e => e === data.tag)) {
+                      newTags.push(data.tag)
+                    }
+                    StopEvent(e)
+                    break;
+                  }
+                  case "-": {
+                    if (newTags.some(e => e === data.tag)) {
+                      newTags = newTags.filter(e => e !== data.tag)
+                    } else if (!newTags.some(e => e === "-" + data.tag)) {
+                      newTags.push("-" + data.tag)
+                    }
+                    StopEvent(e)
+                    break;
+                  }
+                }
+                setSearchTagsInput(newTags)
+              }
+            }
+          }}
+        >
+
+          <div className={style["PaginationControls"]} >
+            <div />
+            <div className={style["InnerFrame"]}>
+              <button kiase-style="" onClick={handlePrevPage} disabled={page === 1}>{"<"}</button>
+              <button kiase-style="" onClick={() => { setJupToPage(true); setJupPage(page) }} >{t("windowsType.postSearch.page", usrIndx).replace("$1", page)}</button>
+              <button kiase-style="" onClick={handleNextPage}>{">"}</button>
+            </div>
+          </div>
+
+          <div className={style["TagEditor"]} >
+            <div className={style["InnerFrame"]}>
+              <input
+                type="text"
+                value={searchTagsInput.join(" ")}
+                onInput={(e) => setSearchTagsInput(e.currentTarget.value.split(" "))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.code === "NumpadEnter") {
+                    if (searchTagsInput.join(" ") === searchTags.join(" ")) return;
+                    refreshSearch(searchTagsInput);
+                  }
+                }}
+                onFocus={() => { setFocuOnIt(true) }}
+                onBlur={() => { setFocuOnIt(false) }}
+              />
+              <button className={[filterPanel && style["activ"]].join(" ")} onClick={() => setFilterPanel(e => !e)}>
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" /></svg>
+              </button>
+            </div>
+            <div />
+          </div>
+
+          <JumpToPageOverlay
+            jupToPage={jupToPage}
+            jupPage={jupPage}
+            setJupPage={setJupPage}
+            setJupToPage={setJupToPage}
+            setPage={setPage}
+          />
+
+          <div className={[style["Filter"], filterPanel && style["display"]].join(" ")}>
+            <div className={style["InnerFrame"]}>
+              <div>
+                <h1>{t("windowsType.postSearch.filter", usrIndx)}</h1>
+                <h2>{t("windowsType.postSearch.filter.rating", usrIndx)}</h2>
+                <div className={style["btns"]}>
+                  {
+                    ([
+                      [searchFilter.rating?.s, "s"], [searchFilter.rating?.q, "q"],
+                      [searchFilter.rating?.e, "e"],
+                    ] as [boolean, ("s" | "q" | "e")][]).map(rat => {
+                      return <button
+                        key={rat[1]}
+                        className={[rat[0] && style["activ"]].join(" ")}
+                        onClick={() => {
+                          setSearchFilter(prev => ({
+                            ...prev,
+                            rating: {
+                              s: false, q: false, e: false,
+                              ...prev.rating,
+                              [rat[1]]: !prev.rating?.[rat[1]]
+                            }
+                          }))
+                        }}
+                      >{t("windowsType.postSearch.filter.rating." + rat[1] as any, usrIndx)}</button>
+                    })
+                  }
+                </div>
+                <br />
+                <h2>{t("windowsType.postSearch.filter.type", usrIndx)}</h2>
+                <div className={style["btns"]}>
+                  {
+                    ([[searchFilter.type?.vid, "vid"], [searchFilter.type?.gif, "gif"], [searchFilter.type?.pic, "pic"],
+                    ] as [boolean, ("vid" | "gif" | "pic")][]).map(tType => (
+                      <button
+                        key={tType[1]}
+                        className={[tType[0] && style["activ"]].join(" ")}
+                        onClick={() => {
+                          setSearchFilter(prev => ({
+                            ...prev,
+                            type: {
+                              vid: false, gif: false, pic: false,
+                              ...prev.type,
+                              [tType[1]]: !prev.type?.[tType[1]]
+                            }
+                          }))
+                        }}
+                      >{t("windowsType.postSearch.filter.type." + tType[1] as any, usrIndx)}</button>
+                    ))
+                  }
+                </div>
+                <h2>{t("windowsType.postSearch.filter.sortBy", usrIndx)}</h2>
+                <div className={style["btns"]}>
+                  {
+                    ([
+                      "newest", "score", "favs", "size"
+                    ] as ("newest" | "score" | "favs" | "size")[]).map(sort => {
+                      return <button
+                        key={sort}
+                        className={[sort === "newest" ? "" : sort === searchFilter.sortBy && style["activ"]].join(" ")}
+                        onClick={() => {
+                          setSearchFilter(prev => ({
+                            ...prev,
+                            sortBy: sort
+                          }))
+                        }}
+                      >{t("windowsType.postSearch.filter.sortBy." + sort as any, usrIndx)}</button>
+                    })
+                  }
+                </div>
+                <br />
+                <div className={style["btns"]}>
+                  <button
+                    className={[searchFilter.reverse && style["activ"]].join(" ")}
+                    onClick={() => {
+                      setSearchFilter(prev => ({
+                        ...prev,
+                        reverse: !prev.reverse
+                      }))
+                    }}
+                  >{t("windowsType.postSearch.filter.sortBy.reverse", usrIndx)}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={style["List"]}>
+            {showLoading && <NODATA.Fetching />}
+            {!showLoading &&
+              <div className={style["InnerFrame"]} ref={scrollPage}>
+
+                {processedPosts.map((post, indx) => <Components.Card
+                  actionMenu={actionMenu}
+                  key={post.id}
+                  post={post}
+                  delay={indx * .005}
+                  q={{ q: searchTags.join(" ") }}
+                  onClick={() => {
+                    const winID = `post-${id}`
+                    const children = <windowsType.post key={post.id} id={id} />;
+                    const customData: e621Type.window.post = {
+                      type: "post",
+                      data: {
+                        postId: post.id,
+                        cachedPost: post,
+                        parentData: {
+                          windowID,
+                          title: thisWindow?.title!,
+                          componentType: "postSearch",
+                          rect: thisWindow?.rect!,
+                          customData: {
+                            type: "postSearch",
+                            data: {
+                              nowPage: page,
+                              pageCache: postsCache,
+                              searchTags,
+                            }
+                          }
+                        }
+                      }
+                    }
+                    if (!wmRef.current?.hasWindowID(winID)) {
+                      wmRef.current?.createWindow({
+                        id: winID,
+                        children,
+                        customData,
+                      })
+                    } else {
+                      wmRef.current.updateWindow(winID, {
+                        children,
+                        customData,
+                      })
+                      wmRef.current.bringToFront(winID)
+                    }
+                  }}
+                />)}
+
+              </div>
+            }
+            {!showLoading && processedPosts.length === 0 && <NODATA.None />}
+          </div>
+
+        </WINDOW_FRAME>
+      </>
+    );
+  },
+  post: function ({ id }: windowProp) {
+    const windowID = `post-${id}`
+    const thisWindow = wmRef.current?.getWindow(windowID)
+
+    const savedData = thisWindow?.customData?.type === "post"
+      ? thisWindow.customData.data
+      : undefined;
+
+    const [postId] = useState<number>(savedData?.postId ?? 0);
+    const [postData, setPostData] = useState<E621.Post | undefined>(savedData?.cachedPost);
+    const [isLoading, setIsLoading] = useState<boolean>(!savedData?.cachedPost);
+
+    const fetchPost = useCallback(async () => {
+      if (!postId) return;
+      setIsLoading(true);
+      setPostData(undefined)
+      try {
+        const result = await LABS_E621_API.posts.get({
+          id: postId,
+          user: e621Info(workSpaceStatus, usrIndx)
+        });
+        if (result) {
+          setPostData(result);
+        }
+      } catch (e) {
+        Kiasole.error(`Post ${postId} load failed: ${e}`);
+      } finally {
+        setIsLoading(false);
+      }
+    }, [postId]);
+
+    useEffect(() => {
+      if (!postData && postId !== 0) {
+        fetchPost();
+      }
+    }, [postId]);
+
+    useEffect(() => {
+      thisWindow?.setData({
+        type: "post",
+        data: {
+          postId,
+          cachedPost: postData,
+          parentData: savedData?.parentData
+        }
+      });
+      if (postData)
+        thisWindow?.setTitle(`${t("windowsType.post", usrIndx)} / ${postData.tags.artist.join(",")} - ${postData.id}`)
+      else
+        thisWindow?.setTitle(`${t("windowsType.post", usrIndx)} / ${postId}`)
+    }, [postData, postId]);
+
+    return (
+      <>
+        <WINDOW_FRAME
+          menulist={[
+            windowAction(windowID, [
+              [
+                t("menuButton.RestoreParentWindow", usrIndx),
+                () => {
+                  if (thisWindow?.customData?.type === "post") {
+                    const { parentData } = thisWindow?.customData?.data
+                    if (parentData) {
+                      const { rect, windowID, customData, componentType } = parentData
+
+                      let reconstructedChildren: ReactNode = null;
+
+                      if (componentType === "postSearch") {
+                        const parentId = windowID.replace("post_search-", "");
+                        reconstructedChildren = <windowsType.postSearch id={parentId} />;
+                      } else if (componentType === "pool") {
+                        const parentId = windowID.replace("pool-", "");
+                        reconstructedChildren = <windowsType.pool id={parentId} />;
+                      }
+
+                      if (wmRef.current?.getWindow(windowID)) {
+                        wmRef.current.bringToFront(windowID)
+                      } else {
+                        wmRef.current?.createWindow({
+                          id: windowID,
+                          title: parentData.title,
+                          rect,
+                          children: reconstructedChildren,
+                          customData: customData
+                        })
+                      }
+                    }
+                  }
+                }
+              ],
+            ]),
+            [
+              t("menuButton.top.Data", usrIndx),
+              [
+                [
+                  t("menuButton.Reload", usrIndx),
+                  () => {
+                    fetchPost()
+                  }
+                ],
+              ],
+            ],
+            ...postData ? [[
+              t("menuButton.top.Other", usrIndx),
+              menuBtn.post(postData,
+                thisWindow?.customData?.type === "post" ?
+                  {
+                    q: (() => {
+                      const { parentData } = thisWindow?.customData?.data
+                      if (parentData) {
+                        if (parentData.componentType === "postSearch") {
+                          return parentData.customData.data.searchTags.join(" ")
+                        } else if (parentData.componentType === "pool") {
+                          return `pool:${parentData.customData.data.poolId}`
+                        }
+                      }
+                    })()
+                  }
+                  : {}),
+            ] as MenuButtonType] : [],
+          ]}
+        >
+          {postData &&
+            <Components.Post postData={postData} thisWindow={thisWindow} />
+          }
+          {!postData && <NODATA.Fetching />}
+        </WINDOW_FRAME >
+      </>
+    );
+  },
+  postGetByID: function ({ id }: windowProp) {
+    const windowID = `post_get_by_id-${id}`;
+    const thisWindow = wmRef.current?.getWindow(windowID);
+
+    const savedData = thisWindow?.customData?.type === "postGetByID"
+      ? thisWindow.customData.data
+      : undefined;
+
+    const [inputId, setInputId] = useState<string | number>(savedData?.currentId ?? "");
+    const [fetchedPost, setFetchedPost] = useState<E621.Post | null | undefined>(savedData?.fetchedPost);
+    const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">(savedData?.status ?? "idle");
+
+    const handleSearch = async (nextId: string | number) => {
+      const targetId = Number(nextId);
+      if (isNaN(targetId) || targetId <= 0) {
+        Kiasole.error("Invalid ID");
+        return;
+      }
+
+      const targetWindowID = `post_get_by_id-${targetId}`;
+
+      if (targetWindowID !== windowID && wmRef.current?.hasWindowID(targetWindowID)) {
+        Kiasole.log(`Window ${targetWindowID} already exists. Focusing...`);
+        wmRef.current.bringToFront(targetWindowID);
+        return;
+      }
+
+      setStatus("loading");
+      setFetchedPost(undefined);
+
+      try {
+        const result = await LABS_E621_API.posts.get({
+          id: targetId,
+          user: e621Info(workSpaceStatus, usrIndx)
+        });
+
+        if (result) {
+          setFetchedPost(result);
+          setStatus("success");
+          if (targetWindowID !== windowID) {
+            thisWindow?.setData({
+              type: "postGetByID",
+              data: {
+                currentId: targetId,
+                fetchedPost: result,
+                status: "success"
+              }
+            });
+
+            const success = wmRef.current?.updateWindowID(windowID, targetWindowID);
+
+            if (success) {
+              wmRef.current?.updateWindow(targetWindowID, {
+                children: <windowsType.postGetByID id={targetId.toString()} />
+              });
+            }
+          }
+
+        } else {
+          setFetchedPost(null);
+          setStatus("error");
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus("error");
+      }
+    };
+
+    useEffect(() => {
+      thisWindow?.setData({
+        type: "postGetByID",
+        data: {
+          currentId: inputId,
+          fetchedPost: fetchedPost,
+          status: status
+        }
+      });
+      thisWindow?.setTitle(`${t("windowsType.postGetByID", usrIndx)} [ ${inputId} ]`);
+    }, [inputId, fetchedPost, status]);
+
+    useEffect(() => {
+      if (status === "loading" && !fetchedPost) {
+        handleSearch(inputId);
+      }
+    }, []);
+
+    return (
+      <WINDOW_FRAME
+        menulist={[
+          windowAction(windowID),
+          [
+            t("menuButton.top.Data", usrIndx),
+            [
+              [
+                t("menuButton.Reload", usrIndx),
+                () => {
+                  handleSearch(inputId)
+                }
+              ],
+            ],
+          ],
+          ...fetchedPost ? [[
+            t("menuButton.top.Other", usrIndx),
+            menuBtn.post(fetchedPost, {}, "id"),
+          ] as MenuButtonType] : [],
+        ]}
+      >
+        <div className={style["postGetByID"]}>
+          <div className={style["Input"]}>
+            <input
+              type="text"
+              value={inputId}
+              onChange={(e) => setInputId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.code === "NumpadEnter") {
+                  handleSearch(e.currentTarget.value);
+                }
+              }}
+              placeholder="Input Post ID..."
+            />
+          </div>
+          {fetchedPost &&
+            <Components.Post key={fetchedPost.id} postData={fetchedPost} thisWindow={thisWindow} />
+          }
+          {!fetchedPost && <NODATA.Fetching />}
+        </div>
+      </WINDOW_FRAME >
+    );
+  },
+  pool: function ({ id }: windowProp) {
+    const windowID = `pool-${id}`;
+    const thisWindow = wmRef.current?.getWindow(windowID);
+
+    const savedData = thisWindow?.customData?.type === "pool"
+      ? thisWindow.customData.data
+      : undefined;
+
+    const [poolIdInput, setPoolIdInput] = useState<string | number>(savedData?.poolId || id || "");
+    const [poolId, setPoolId] = useState<number>(savedData?.poolId || Number(id) || 0);
+    const [poolInfo, setPoolInfo] = useState<E621.Pool | undefined>(savedData?.poolInfo);
+
+    const [page, setPage] = useState<number>(savedData?.nowPage ?? 1);
+    const [postsCache, setPostsCache] = useState<PostsCache>(savedData?.pageCache ?? {});
+    const [jupToPage, setJupToPage] = useState<boolean>(false);
+    const [jupPage, setJupPage] = useState<number>(1);
+
+    const [isFocuOnIt, setFocuOnIt] = useState<boolean>(false);
+
+    const currentPosts = useMemo(() => postsCache[page] || [], [postsCache, page]);
+
+    const fetchingPages = useRef<Set<number>>(new Set());
+    const scrollPage = useRef<HTMLDivElement>(null);
+
+    const fetchPageData = useCallback(async (targetPage: number) => {
+      if (postsCache[targetPage] || fetchingPages.current.has(targetPage) || !poolId) {
+        return;
+      }
+
+      fetchingPages.current.add(targetPage);
+
+      try {
+        Kiasole.log(`[背景預取] 正在請求 API: Pool ${poolId} 第 ${targetPage} 頁`);
+        const newPosts = await LABS_E621_API.posts.search({
+          tags: [`pool:${poolId}`],
+          page: targetPage,
+          limit: 75,
+          user: e621Info(workSpaceStatus, usrIndx)
+        });
+
+        setPostsCache((prev) => ({
+          ...prev,
+          [targetPage]: newPosts
+        }));
+      } catch (err) {
+        Kiasole.error(`Pool page ${targetPage} fetch failed: ${err}`);
+      } finally {
+        fetchingPages.current.delete(targetPage);
+      }
+    }, [poolId, postsCache]);
+
+    useEffect(() => {
+      const savedCache = thisWindow?.customData?.type === "pool"
+        ? thisWindow.customData.data?.pageCache
+        : null;
+
+      if (savedCache && Object.keys(savedCache).length > 0) {
+        setPostsCache(savedCache);
+      }
+    }, []);
+
+    useEffect(() => {
+      if (thisWindow?.customData?.type === "pool") {
+        thisWindow?.setData({
+          type: "pool",
+          data: {
+            poolId,
+            poolInfo,
+            nowPage: page,
+            pageCache: postsCache,
+          }
+        });
+      }
+    }, [page, postsCache, poolId, poolInfo]);
+
+    useEffect(() => {
+      if (poolInfo) {
+        thisWindow?.setTitle(`${t("windowsType.pool", usrIndx)} : ${poolInfo.name.replace(/_/g, " ")} [Page ${page}]`);
+      } else if (poolId) {
+        thisWindow?.setTitle(`${t("windowsType.pool", usrIndx)} : ${poolId} [Page ${page}]`);
+      } else {
+        thisWindow?.setTitle(`${t("windowsType.pool", usrIndx)}`);
+      }
+    }, [poolInfo, poolId, page]);
+
+    useEffect(() => {
+      if (poolId !== 0 && (!poolInfo || poolInfo.id !== poolId)) {
+        LABS_E621_API.pools.get({ id: poolId }).then(info => {
+          if (info) setPoolInfo(info as any);
+        }).catch(err => Kiasole.error(`Pool Info Fetch Error: ${err}`));
+      }
+    }, [poolId]);
+
+    useEffect(() => {
+      if (!poolId) return;
       const loadData = async () => {
         const targetPages = [page, page + 1, page - 1, page + 2, page - 2]
           .filter(p => p > 0);
@@ -1618,28 +3490,34 @@ const windowsType = {
       };
 
       loadData();
-    }, [page, searchTags]);
+    }, [page, poolId]);
 
     useEffect(() => {
-      const { current: scpg } = scrollPage
+      const { current: scpg } = scrollPage;
       if (scpg) {
-        scpg.scrollTo({ top: 0 })
+        scpg.scrollTo({ top: 0 });
       }
-    }, [page])
+    }, [page]);
 
-    const refreshSearch = useCallback((newTags?: string[]) => {
+    const refreshSearch = useCallback((newId?: string | number) => {
       setPostsCache({});
-
       setPage(1);
 
-      if (newTags) {
-        setSearchTags(newTags);
+      if (newId !== undefined) {
+        const parsedId = Number(newId) || 0;
+        setPoolId(parsedId);
+        if (parsedId !== poolId) {
+          setPoolInfo(undefined);
+        }
       }
-    }, []);
+    }, [poolId]);
+
+    const handleNextPage = () => setPage(p => p + 1);
+    const handlePrevPage = () => setPage(p => Math.max(1, p - 1));
 
     useEffect(() => {
       const keydown = (e: KeyboardEvent) => {
-        if (!wmRef.current?.getWindow(thisWindow.id)?.isFocused) return;
+        if (!wmRef.current?.getWindow(thisWindow!.id)?.isFocused) return;
 
         switch (e.code) {
           case "Escape": {
@@ -1678,62 +3556,10 @@ const windowsType = {
       const btnRect = btn.getBoundingClientRect()
       const x = btnRect.bottom
       const y = btnRect.left
-      MenuAction.showMenu([
-        [
-          "Open With Browser",
-          () => {
-            const q = searchTags.join(" ")
-            open(`https://e621.net/posts/${post.id}?${makeQuery({ q })}`)
-          }
-        ],
-        [
-          "Open With Viewer",
-          () => {
-            someActions.openWithViewer(post)
-          }
-        ],
-        [
-          "Open With Get by ID",
-          () => {
-            someActions.openWithGetByID(post)
-          }
-        ],
-        [
-          "Save To Tmp",
-          () => {
-            someActions.saveToTmp(userIndex, {
-              type: "postGetByID",
-              data: {
-                currentId: post.id,
-                status: "success",
-                fetchedPost: post
-              }
-            }, `Post Get By ID [ ${post.id} ]`, `post_get_by_id-${post.id}`)
-          },
-          {
-            type: "post",
-            data: post
-          }
-        ],
-        [
-          "Copy ID",
-          () => {
-            navigator.clipboard.writeText(post.id.toString())
-          }
-        ],
-        [
-          "Set as wallpaper",
-          () => {
-            someActions.setAsWallpaper(userIndex, post.file.url!, post)
-          }
-        ],
-      ], [x, y])
+      MenuAction.showMenu(menuBtn.post(post, { q: `pool:${poolId}` }), [x, y])
     }
 
-    const handleNextPage = () => setPage(p => p + 1);
-    const handlePrevPage = () => setPage(p => Math.max(1, p - 1));
-
-    const showLoading = !postsCache[page];
+    const showLoading = poolId !== 0 && !postsCache[page];
 
     useEffect(() => {
       const statusOffset = 50
@@ -1833,16 +3659,19 @@ const windowsType = {
         <div className={style["InnerFrame"]}>
           <input
             type="text"
-            value={searchTagsInput.join(" ")}
-            onInput={(e) => setSearchTagsInput(e.currentTarget.value.split(" "))}
+            value={poolIdInput}
+            onInput={(e) => setPoolIdInput(e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.code === "NumpadEnter") {
-                if (searchTagsInput.join(" ") === searchTags.join(" ")) return;
-                refreshSearch(searchTagsInput);
+                const targetId = Number(poolIdInput);
+                if (targetId && targetId !== poolId) {
+                  refreshSearch(targetId);
+                }
               }
             }}
             onFocus={() => { setFocuOnIt(true) }}
             onBlur={() => { setFocuOnIt(false) }}
+            placeholder="Input Pool ID..."
           />
         </div>
         <div />
@@ -2009,47 +3838,33 @@ const windowsType = {
     return (
       <>
         <WINDOW_FRAME
-          className={style["postSearch"]}
+          className={style["pool"]}
           menulist={[
-            windowAction(windowID, [
-              [
-                "Clone",
-                () => {
-                  const createAt = new Date().getTime()
-
-                  wmRef.current?.createWindow({
-                    id: `post_search-${createAt}`,
-                    title: `Post Search [ ${createAt} ]`,
-                    children: <windowsType.postSearch id={`${createAt}`} />,
-                    customData: thisWindow?.customData
-                  })
-                }
-              ]
-            ]),
-
+            windowAction(windowID),
             [
-              "Data",
+              t("menuButton.top.Data", usrIndx),
               [
                 [
-                  "Reload",
-                  () => refreshSearch()
+                  t("menuButton.Reload", usrIndx),
+                  () => refreshSearch(poolId)
                 ],
               ],
             ],
             [
-              "Other",
+              t("menuButton.top.Other", usrIndx),
               [
                 [
-                  "Save to Tmp",
+                  t("menuButton.SaveToTmp", usrIndx),
                   () => {
-                    someActions.saveToTmp(userIndex, cloneDeep(wmRef.current!.getWindow(thisWindow.id!)!.customData!), thisWindow.title, windowID)
+                    someActions.saveToTmp(usrIndx, cloneDeep(wmRef.current!.getWindow(thisWindow!.id!)!.customData!), thisWindow!.title, windowID)
                   },
-                  thisWindow.customData?.type === "postSearch" ? {
-                    type: "postSearch",
+                  thisWindow?.customData?.type === "pool" ? {
+                    type: "pool",
                     thisWindow,
                     data: thisWindow.customData.data
                   } : undefined
                 ],
+                ...menuBtn.copyJSON(poolInfo),
               ],
             ],
           ]}
@@ -2063,29 +3878,14 @@ const windowsType = {
             if (itemdata) {
               const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
               const { data, type } = item
-              if (type === "tag") {
-                let newTags = [...searchTagsInput];
-                switch (data.action) {
-                  case "+": {
-                    if (newTags.some(e => e === "-" + data.tag)) {
-                      newTags = newTags.filter(e => e !== "-" + data.tag)
-                    } else if (!newTags.some(e => e === data.tag)) {
-                      newTags.push(data.tag)
-                    }
-                    StopEvent(e)
-                    break;
-                  }
-                  case "-": {
-                    if (newTags.some(e => e === data.tag)) {
-                      newTags = newTags.filter(e => e !== data.tag)
-                    } else if (!newTags.some(e => e === "-" + data.tag)) {
-                      newTags.push("-" + data.tag)
-                    }
-                    StopEvent(e)
-                    break;
-                  }
-                }
-                setSearchTagsInput(newTags)
+              if (type === "poolId") {
+                setPoolIdInput(data);
+                refreshSearch(data);
+                StopEvent(e);
+              } else if (type === "pool") {
+                setPoolIdInput(data.poolId);
+                refreshSearch(data.poolId);
+                StopEvent(e);
               }
             }
           }}
@@ -2102,20 +3902,24 @@ const windowsType = {
           />
 
           <div className={style["List"]}>
-            {showLoading && <NODATA.Fetching />}
-            {!showLoading &&
+            {!poolId ? (
+              <NODATA.None />
+            ) : showLoading ? (
+              <NODATA.Fetching />
+            ) : currentPosts.length === 0 ? (
+              <NODATA.None />
+            ) : (
               <div className={style["InnerFrame"]} ref={scrollPage}>
-
                 {currentPosts.map((post, indx) => <Components.Card
                   actionMenu={actionMenu}
                   key={post.id}
                   post={post}
                   delay={indx * .005}
-                  q={{ q: searchTags.join(" ") }}
+                  q={{ q: `pool:${poolId}` }}
                   onClick={() => {
-                    const winID = `post-${id}`
+                    const winID = `post-${post.id}`
                     const title = `Post / ${post.tags.artist.join(",")} - ${post.id}`;
-                    const children = <windowsType.post key={post.id} id={id} />;
+                    const children = <windowsType.post key={post.id} id={`${post.id}`} />;
                     const customData: e621Type.window.post = {
                       type: "post",
                       data: {
@@ -2124,401 +3928,34 @@ const windowsType = {
                         parentData: {
                           windowID,
                           title: thisWindow?.title!,
-                          componentType: "postSearch",
+                          componentType: "pool",
                           rect: thisWindow?.rect!,
                           customData: {
-                            type: "postSearch",
+                            type: "pool",
                             data: {
+                              poolId,
+                              poolInfo,
                               nowPage: page,
                               pageCache: postsCache,
-                              searchTags,
                             }
                           }
                         }
                       }
                     }
                     if (!wmRef.current?.hasWindowID(winID)) {
-                      wmRef.current?.createWindow({
-                        id: winID,
-                        title,
-                        children,
-                        customData,
-                      })
+                      wmRef.current?.createWindow({ id: winID, title, children, customData })
                     } else {
-                      wmRef.current.updateWindow(winID, {
-                        title,
-                        children,
-                        customData,
-                      })
+                      wmRef.current.updateWindow(winID, { title, children, customData })
                       wmRef.current.bringToFront(winID)
                     }
                   }}
                 />)}
-
               </div>
-            }
-            {!showLoading && currentPosts.length === 0 && <NODATA.None />}
-          </div>
-
-          <div className={style["BackgroundMask"]}>
-            {Layer.PaginationControls}
-            {Layer.TagEditor}
+            )}
           </div>
 
         </WINDOW_FRAME>
       </>
-    );
-  },
-  post: function ({ id }: windowProp) {
-    const windowID = `post-${id}`
-    const thisWindow = wmRef.current?.getWindow(windowID)
-
-    const savedData = thisWindow?.customData?.type === "post"
-      ? thisWindow.customData.data
-      : undefined;
-
-    const [postId] = useState<number>(savedData?.postId ?? 0);
-    const [postData, setPostData] = useState<E621.Post | undefined>(savedData?.cachedPost);
-    const [isLoading, setIsLoading] = useState<boolean>(!savedData?.cachedPost);
-
-    const fetchPost = useCallback(async () => {
-      if (!postId) return;
-      setIsLoading(true);
-      setPostData(undefined)
-      try {
-        const result = await LABS_E621_API.posts.get({
-          id: postId,
-          user: (workSpaceStatus.userList[userIndex].saveInfo.user.e621 ? {
-            name: workSpaceStatus.userList[userIndex].saveInfo.user.e621?.name!,
-            key: workSpaceStatus.userList[userIndex].saveInfo.user.e621?.key!,
-          } : undefined)
-        });
-        if (result) {
-          setPostData(result);
-        }
-      } catch (e) {
-        Kiasole.error(`Post ${postId} load failed: ${e}`);
-      } finally {
-        setIsLoading(false);
-      }
-    }, [postId]);
-
-    useEffect(() => {
-      if (!postData && postId !== 0) {
-        fetchPost();
-      }
-    }, [postId]);
-
-    useEffect(() => {
-      thisWindow?.setData({
-        type: "post",
-        data: {
-          postId,
-          cachedPost: postData,
-          parentData: savedData?.parentData
-        }
-      });
-    }, [postData, postId]);
-
-    return (
-      <>
-        <WINDOW_FRAME
-          menulist={[
-            windowAction(windowID, [
-              [
-                "Restore Parent Window",
-                () => {
-                  if (thisWindow?.customData?.type === "post") {
-                    const { parentData } = thisWindow?.customData?.data
-                    if (parentData) {
-                      const { rect, windowID, customData, componentType } = parentData
-
-                      let reconstructedChildren: ReactNode = null;
-
-                      if (componentType === "postSearch") {
-                        const parentId = windowID.replace("post_search-", "");
-                        reconstructedChildren = <windowsType.postSearch id={parentId} />;
-                      }
-
-                      if (wmRef.current?.getWindow(windowID)) {
-                        wmRef.current.bringToFront(windowID)
-                      } else {
-                        wmRef.current?.createWindow({
-                          id: windowID,
-                          title: parentData.title,
-                          rect,
-                          children: reconstructedChildren,
-                          customData: customData
-                        })
-                      }
-                    }
-                  }
-                }
-              ]
-            ]),
-            [
-              "Data",
-              [
-                [
-                  "Reload",
-                  () => {
-                    fetchPost()
-                  }
-                ],
-              ],
-            ],
-            [
-              "Other",
-              [
-                [
-                  "Set as wallpaper",
-                  () => {
-                    someActions.setAsWallpaper(userIndex, postData?.file.url!, postData)
-                  }
-                ],
-                [
-                  "Open With Get by ID",
-                  () => {
-                    if (postData)
-                      someActions.openWithGetByID(postData)
-                  }
-                ],
-                [
-                  "Open With Browser",
-                  () => {
-                    if (thisWindow?.customData?.type === "post") {
-                      const { parentData } = thisWindow?.customData?.data
-                      if (parentData) {
-                        const q = parentData.customData.data.searchTags.join(" ")
-                        open(`https://e621.net/posts/${postData?.id}?${makeQuery({ q })}`)
-                      }
-                    }
-                  }
-                ],
-                [
-                  "Open With Viewer",
-                  () => {
-                    if (postData)
-                      someActions.openWithViewer(postData)
-                  }
-                ],
-                [
-                  "Copy ID",
-                  () => {
-                    someActions.writeToClipboard(postData?.id.toString()!)
-                  }
-                ],
-                [
-                  "Save To Tmp",
-                  () => {
-                    if (postData)
-                      someActions.saveToTmp(userIndex, {
-                        type: "postGetByID",
-                        data: {
-                          currentId: postData.id,
-                          status: "success",
-                          fetchedPost: postData
-                        }
-                      }, `Post Get By ID [ ${postData.id} ]`, `post_get_by_id-${postData.id}`)
-                  },
-                  postData ? {
-                    type: "post",
-                    data: postData
-                  } : undefined
-                ],
-              ],
-            ],
-
-          ]}
-        >
-          {postData &&
-            <Components.Post postData={postData} thisWindow={thisWindow} />
-          }
-          {!postData && <NODATA.Fetching />}
-        </WINDOW_FRAME >
-      </>
-    );
-  },
-  postGetByID: function ({ id }: windowProp) {
-    const windowID = `post_get_by_id-${id}`;
-    const thisWindow = wmRef.current?.getWindow(windowID);
-
-    const savedData = thisWindow?.customData?.type === "postGetByID"
-      ? thisWindow.customData.data
-      : undefined;
-
-    const [inputId, setInputId] = useState<string | number>(savedData?.currentId ?? "");
-    const [fetchedPost, setFetchedPost] = useState<E621.Post | null | undefined>(savedData?.fetchedPost);
-    const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">(savedData?.status ?? "idle");
-
-    const handleSearch = async (nextId: string | number) => {
-      const targetId = Number(nextId);
-      if (isNaN(targetId) || targetId <= 0) {
-        Kiasole.error("Invalid ID");
-        return;
-      }
-
-      const targetWindowID = `post_get_by_id-${targetId}`;
-
-      if (targetWindowID !== windowID && wmRef.current?.hasWindowID(targetWindowID)) {
-        Kiasole.log(`Window ${targetWindowID} already exists. Focusing...`);
-        wmRef.current.bringToFront(targetWindowID);
-        return;
-      }
-
-      setStatus("loading");
-      setFetchedPost(undefined);
-
-      try {
-        const result = await LABS_E621_API.posts.get({
-          id: targetId,
-          user: (workSpaceStatus.userList[userIndex].saveInfo.user.e621 ? {
-            name: workSpaceStatus.userList[userIndex].saveInfo.user.e621?.name!,
-            key: workSpaceStatus.userList[userIndex].saveInfo.user.e621?.key!,
-          } : undefined)
-        });
-
-        if (result) {
-          setFetchedPost(result);
-          setStatus("success");
-          thisWindow?.setTitle(`Post Get By ID [ ${targetId} ]`);
-
-
-          if (targetWindowID !== windowID) {
-            thisWindow?.setData({
-              type: "postGetByID",
-              data: {
-                currentId: targetId,
-                fetchedPost: result,
-                status: "success"
-              }
-            });
-
-            const success = wmRef.current?.updateWindowID(windowID, targetWindowID);
-
-            if (success) {
-              wmRef.current?.updateWindow(targetWindowID, {
-                children: <windowsType.postGetByID id={targetId.toString()} />
-              });
-            }
-          }
-
-        } else {
-          setFetchedPost(null);
-          setStatus("error");
-        }
-      } catch (e) {
-        console.error(e);
-        setStatus("error");
-      }
-    };
-
-    useEffect(() => {
-      thisWindow?.setData({
-        type: "postGetByID",
-        data: {
-          currentId: inputId,
-          fetchedPost: fetchedPost,
-          status: status
-        }
-      });
-    }, [inputId, fetchedPost, status]);
-
-    useEffect(() => {
-      if (status === "loading" && !fetchedPost) {
-        handleSearch(inputId);
-      }
-    }, []);
-
-    return (
-      <WINDOW_FRAME
-        menulist={[
-          windowAction(windowID),
-          [
-            "Data",
-            [
-              [
-                "Reload",
-                () => {
-                  handleSearch(inputId)
-                }
-              ],
-            ],
-          ],
-          [
-            "Other",
-            [
-              [
-                "Set as wallpaper",
-                () => {
-                  if (fetchedPost) {
-                    someActions.setAsWallpaper(userIndex, fetchedPost?.file.url!, fetchedPost)
-                  }
-                }
-              ],
-              [
-                "Open With Browser",
-                () => {
-                  if (fetchedPost)
-                    open(`https://e621.net/posts/${fetchedPost.id}`)
-
-                }
-              ],
-              [
-                "Open With Viewer",
-                () => {
-                  if (fetchedPost)
-                    someActions.openWithViewer(fetchedPost!)
-                }
-              ],
-              [
-                "Save To Tmp",
-                () => {
-                  if (fetchedPost)
-                    someActions.saveToTmp(userIndex, {
-                      type: "postGetByID",
-                      data: {
-                        currentId: fetchedPost.id,
-                        status: "success",
-                        fetchedPost: fetchedPost
-                      }
-                    }, `Post Get By ID [ ${fetchedPost.id} ]`, `post_get_by_id-${fetchedPost.id}`)
-                },
-                fetchedPost ? {
-                  type: "post",
-                  data: fetchedPost
-                } : undefined
-              ],
-              [
-                "Copy ID",
-                () => {
-                  someActions.writeToClipboard(fetchedPost?.id.toString()!)
-                }
-              ],
-            ],
-          ],
-        ]}
-      >
-        <div className={style["postGetByID"]}>
-          <div className={style["Input"]}>
-            <input
-              type="text"
-              value={inputId}
-              onChange={(e) => setInputId(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.code === "NumpadEnter") {
-                  handleSearch(e.currentTarget.value);
-                }
-              }}
-              placeholder="Input Post ID..."
-            />
-          </div>
-          {fetchedPost &&
-            <Components.Post key={fetchedPost.id} postData={fetchedPost} thisWindow={thisWindow} />
-          }
-          {!fetchedPost && <NODATA.Fetching />}
-        </div>
-      </WINDOW_FRAME >
     );
   },
   viewer: function ({ id }: windowProp) {
@@ -2529,181 +3966,52 @@ const windowsType = {
       ? thisWindow.customData.data
       : undefined;
 
-    const [fetchedPost, setFetchedPost] = useState<E621.Post>(savedData!);
+    const [fetchedPost] = useState<E621.Post>(savedData!);
+
+    useEffect(() => {
+      thisWindow?.setTitle(`${t("windowsType.viewer", usrIndx)} [ ${fetchedPost.id} ]`)
+    }, [])
 
     return (
       <WINDOW_FRAME
         menulist={[
           windowAction(windowID, [
             [
-              "Restore Parent Window",
+              "View Post",
               () => {
-                if (thisWindow?.customData?.type === "post") {
-                  const { parentData } = thisWindow?.customData?.data
-                  if (parentData) {
-                    const { rect, windowID, customData, componentType } = parentData
-
-                    let reconstructedChildren: ReactNode = null;
-
-                    if (componentType === "postSearch") {
-                      const parentId = windowID.replace("post_search-", "");
-                      reconstructedChildren = <windowsType.postSearch id={parentId} />;
-                    }
-
-                    if (wmRef.current?.getWindow(windowID)) {
-                      wmRef.current.bringToFront(windowID)
-                    } else {
-                      wmRef.current?.createWindow({
-                        id: windowID,
-                        title: parentData.title,
-                        rect,
-                        children: reconstructedChildren,
-                        customData: customData
-                      })
-                    }
-                  }
-                }
+                createWindow(wmRef, {
+                  type: "postGetByID",
+                  data: {
+                    status: "success",
+                    currentId: fetchedPost.id,
+                    fetchedPost,
+                  },
+                })
+              },
+              {
+                type: "post",
+                data: fetchedPost,
               }
             ],
           ]),
-          [
-            "Other",
-            [
-              [
-                "Set as wallpaper",
-                () => {
-                  if (fetchedPost) {
-                    someActions.setAsWallpaper(userIndex, fetchedPost?.file.url!, fetchedPost)
-                  }
-                }
-              ],
-              [
-                "Open With Browser",
-                () => {
-                  if (thisWindow?.customData?.type === "post") {
-                    const { parentData } = thisWindow?.customData?.data
-                    if (parentData) {
-                      const q = parentData.customData.data.searchTags.join(" ")
-                      open(`https://e621.net/posts/${fetchedPost?.id}?${makeQuery({ q })}`)
-                    }
-                  }
-                }
-              ],
-              [
-                "Save To Tmp",
-                () => {
-                  if (fetchedPost)
-                    someActions.saveToTmp(userIndex, {
-                      type: "postGetByID",
-                      data: {
-                        currentId: fetchedPost.id,
-                        status: "success",
-                        fetchedPost: fetchedPost
-                      }
-                    }, `Post Get By ID [ ${fetchedPost.id} ]`, `post_get_by_id-${fetchedPost.id}`)
-                },
-                fetchedPost ? {
-                  type: "post",
-                  data: fetchedPost
-                } : undefined
-              ],
-              [
-                "Copy ID",
-                () => {
-                  someActions.writeToClipboard(fetchedPost?.id.toString()!)
-                }
-              ],
-            ],
-          ],
+          ...fetchedPost ? [[
+            t("menuButton.top.Other", usrIndx),
+            menuBtn.post(fetchedPost, {}, "viewer"),
+          ] as MenuButtonType] : [],
         ]}
       >
-        <Viewer className={style["Viewer"]}>
+        <Viewer
+          className={style["Viewer"]}
+          tTranslate={{
+            "resetTransform": t("windowsType.viewer.ResetTransform", usrIndx),
+            "randerMode": t("windowsType.viewer.RanderMode", usrIndx),
+            "randerMode.auto": t("windowsType.viewer.RanderMode.Auto", usrIndx),
+            "randerMode.pixelated": t("windowsType.viewer.RanderMode.Pixelated", usrIndx),
+          }}
+        >
           <img src={fetchedPost.file.url!} alt="" />
         </Viewer>
       </WINDOW_FRAME >
-    );
-  },
-  pool: function ({ id }: windowProp) {
-    const windowID = `pool-${id}`;
-    const thisWindow = wmRef.current?.getWindow(windowID);
-
-    const savedData = thisWindow?.customData?.type === "pool"
-      ? thisWindow.customData.data
-      : undefined;
-
-    const [poolId] = useState<number>(savedData?.poolId || 0);
-    const [poolInfo, setPoolInfo] = useState<E621.Pool | undefined>(savedData?.poolInfo);
-
-    const [page, setPage] = useState<number>(savedData?.nowPage ?? 1);
-    const [postsCache, setPostsCache] = useState<PostsCache>(savedData?.pageCache ?? {});
-    const fetchingPages = useRef<Set<number>>(new Set());
-
-    const currentPosts = useMemo(() => postsCache[page] || [], [postsCache, page]);
-
-    useEffect(() => {
-      if (!poolInfo && poolId !== 0) {
-        LABS_E621_API.pools.get({ id: poolId }).then(info => {
-          if (info) setPoolInfo(info as any);
-        }).catch(err => Kiasole.error(`Pool Info Fetch Error: ${err}`));
-      }
-    }, [poolId]);
-
-    const fetchPageData = useCallback(async (targetPage: number) => {
-      if (postsCache[targetPage] || fetchingPages.current.has(targetPage) || !poolId) {
-        return;
-      }
-
-      fetchingPages.current.add(targetPage);
-      try {
-        const newPosts = await LABS_E621_API.posts.search({
-          tags: [`pool:${poolId}`],
-          page: targetPage,
-          limit: 50
-        });
-
-        setPostsCache((prev) => ({
-          ...prev,
-          [targetPage]: newPosts
-        }));
-      } catch (err) {
-        Kiasole.error(`Pool page ${targetPage} fetch failed: ${err}`);
-      } finally {
-        fetchingPages.current.delete(targetPage);
-      }
-    }, [postsCache, poolId]);
-
-    useEffect(() => {
-      fetchPageData(page);
-      fetchPageData(page + 1);
-    }, [page, poolId, fetchPageData]);
-
-    useEffect(() => {
-      thisWindow?.setData({
-        type: "pool",
-        data: {
-          poolId,
-          poolInfo,
-          nowPage: page,
-          pageCache: postsCache,
-        }
-      });
-
-      if (poolInfo) {
-        thisWindow?.setTitle(`Pool: ${poolInfo.name.replace(/_/g, " ")} [Page ${page}]`);
-      } else {
-        thisWindow?.setTitle(`Pool: ${poolId}`);
-      }
-    }, [page, postsCache, poolInfo, poolId]);
-
-    const handleNextPage = () => setPage(p => p + 1);
-    const handlePrevPage = () => setPage(p => Math.max(1, p - 1));
-
-    // TODO: 請在此處實作 UI
-    // 變數可用: poolInfo (Meta), currentPosts (List), page, handleNextPage, handlePrevPage
-    return (
-      <>
-        {/* UI 邏輯與 postSearch 高度相似，但上方可以多顯示 poolInfo.description */}
-      </>
     );
   },
   setting: function () {
@@ -2713,6 +4021,18 @@ const windowsType = {
     const { settingTabs } = e621Type.window.dataType
     const [nowPage, setNowPage] = useState<e621Type.window.dataType.settingTabs._All>("NONE")
     const [showIndex, setShowIndex] = useState<boolean>(false)
+    const [showTabs, setShowTabs] = useState<boolean>(false)
+
+    const tCategory = (cat: string) => {
+      const capCat = functions.str.capitalizeWords(cat);
+      return t(`setting.${capCat}` as any, usrIndx);
+    };
+
+    const tPage = (cat: string, page: string) => {
+      const capCat = functions.str.capitalizeWords(cat);
+      let p = page;
+      return t(`setting.${capCat}.${p}` as any, usrIndx);
+    };
 
     useEffect(() => {
       if (thisWindow.customData?.type === "setting")
@@ -2725,52 +4045,10 @@ const windowsType = {
         data: nowPage
       });
 
-      thisWindow?.setTitle(nowPage === "NONE" ? "App Setting" : functions.str.capitalizeWords(`Setting / ${nowPage.categorie} > ${nowPage.pages}`));
+      thisWindow?.setTitle(nowPage === "NONE"
+        ? t("windowsType.setting", usrIndx)
+        : `${t("windowsType.setting", usrIndx)} / ${tCategory(nowPage.categorie)} > ${tPage(nowPage.categorie, nowPage.pages)}`);
     }, [nowPage]);
-
-    useEffect(() => {
-      const isFocus = () => !wmRef.current?.getWindow(thisWindow.id)?.isFocused && nowPage === "NONE";
-
-      const keydown = (e: KeyboardEvent) => {
-        if (isFocus()) return;
-        if (e.altKey) {
-          setShowIndex(true)
-          e.preventDefault();
-        };
-        if (e.code.startsWith("Digit")) {
-          const index = +`${e.code.slice(5)}` - 1
-          setNowPage(e => {
-
-            const newCart = settingTabs.categorieList[index]
-
-            if (!newCart) return e
-
-            setShowIndex(false)
-
-            return {
-              categorie: newCart,
-              pages: settingTabs.pageList[newCart][0] as any
-            }
-          })
-        }
-      }
-
-      const keyup = (e: KeyboardEvent) => {
-        if (!e.altKey) {
-          setShowIndex(false)
-          e.preventDefault();
-        };
-      }
-
-      document.addEventListener("keydown", keydown)
-      document.addEventListener("keyup", keyup)
-
-      return () => {
-        document.removeEventListener("keydown", keydown)
-        document.removeEventListener("keyup", keyup)
-      }
-
-    }, [nowPage])
 
     type PageBtn = {
       nowPage: e621Type.window.dataType.settingTabs._All;
@@ -2815,11 +4093,12 @@ const windowsType = {
         const isFocus = () => !wmRef.current?.getWindow(thisWindow.id)?.isFocused;
 
         const keydown = (e: KeyboardEvent) => {
+          setShowTabs(e.shiftKey && e.ctrlKey)
           if (isFocus()) return;
           if (keyispress) return;
 
           if (e.shiftKey) {
-            if (e.altKey) {
+            if (e.ctrlKey) {
 
               const changePage = (offset: number) => {
                 e.preventDefault();
@@ -2900,9 +4179,9 @@ const windowsType = {
         }
 
         const keyup = (e: KeyboardEvent) => {
+          setShowTabs(e.shiftKey && e.ctrlKey)
           if (isFocus()) return;
           keyispress = false
-
           switch (e.code) {
             case "Escape": {
               clearTimeout(animationId);
@@ -2928,10 +4207,10 @@ const windowsType = {
           className={[style["buttonFrame"], style["frist"], backing && style["backing"]].join(" ")}
         >
           <button onClick={() => setNowPage("NONE")}>
-            {"<- Back"}
+            {t("setting.Back", usrIndx)}
           </button>
           <div className={style["backMask"]}>
-            {"<- Back"}
+            {t("setting.Back", usrIndx)}
           </div>
         </div>
 
@@ -2947,7 +4226,7 @@ const windowsType = {
               key={i}
               onClick={() => setNowPage({ categorie: nowPage.categorie, pages: e as any })}
             >
-              {functions.str.capitalizeWords(e)}
+              {tPage(nowPage.categorie, e as string)}
             </button>
           </div>
         )}
@@ -2983,25 +4262,144 @@ const windowsType = {
             switch (nowPage.pages) {
               case "local": {
 
-                return <>
+                const [accMsg, setAccMsg] = useState<string>("")
+
+                const [currentPass, setCurrentPass] = useState<string>("")
+                const [newPass, setNewPass] = useState<string>("")
+                const [newPassAgain, setNewPassAgain] = useState<string>("")
+
+                const nowPass = workSpaceStatus.userList[usrIndx].saveInfo.user.passKey
+
+                const setPass = useCallback((pass?: string) => {
+                  setWorkSpaceStatus(e => {
+                    const _ = cloneDeep(e)
+                    _.userList[usrIndx].saveInfo.user.passKey = pass
+                    return _
+                  })
+                }, [])
+
+                const clearInput = useCallback(() => {
+                  setCurrentPass("")
+                  setNewPass("")
+                  setNewPassAgain("")
+                }, [])
+
+                const setPassKey = useCallback((del?: boolean) => {
+
+                  if (nowPass) {
+                    if (nowPass !== currentPass) { setAccMsg(t("setting.Account.local.changePassword.notic.noMatch", usrIndx)); return; };
+                    if (del) {
+                      setAccMsg("")
+                      newInput.message("你確定你要把密碼解掉？", [
+                        { name: t("setting.Account.local.changePassword.pop.yes", usrIndx), value: "yes", key: "Delete" },
+                        { name: t("setting.Account.local.changePassword.pop.no", usrIndx), value: "" },
+                      ], (e) => {
+                        if (e === "yes") {
+                          setTimeout(() => {
+                            newInput.message(t("setting.Account.local.changePassword.pop.hasGone", usrIndx))
+                          }, .5e3);
+                          setPass()
+                          clearInput()
+                        }
+                      })
+                    } else {
+                      if (newPass !== newPassAgain) { setAccMsg(t("setting.Account.local.changePassword.notic.newNoMatch", usrIndx)); return; }
+                      setAccMsg("")
+                      setPass(newPass)
+                      newInput.message(t("setting.Account.local.changePassword.pop.hasChange", usrIndx))
+                      clearInput()
+                    }
+                  } else {
+                    setPass(currentPass)
+                    newInput.message(t("setting.Account.local.setPassword.pop.success", usrIndx))
+                    clearInput()
+                  }
+                }, [
+                  currentPass,
+                  newPass,
+                  newPassAgain,
+                  workSpaceStatus.userList[usrIndx].saveInfo.user.passKey
+                ])
+
+                return <div className={style["Account"]}>
+                  {nowPass ?
+                    <>
+                      <KiloDown.Subtitle>{t("setting.Account.local.changePassword", usrIndx)}</KiloDown.Subtitle>
+                      <br />
+                      {accMsg ? <>
+                        <span>{accMsg}</span>
+                        <br />
+                        <br />
+                      </> : ""}
+                      <input
+                        kiase-sty=""
+                        placeholder={t("setting.Account.local.changePassword.current", usrIndx)}
+                        type="password"
+                        onChange={e => setCurrentPass(e.currentTarget.value)}
+                        value={currentPass}
+                      />
+                      <br />
+                      <br />
+                      <input
+                        kiase-sty=""
+                        placeholder={t("setting.Account.local.changePassword.new", usrIndx)}
+                        type="password"
+                        onChange={e => setNewPass(e.currentTarget.value)}
+                        value={newPass}
+                      />
+                      <br />
+                      <br />
+                      <input
+                        kiase-sty=""
+                        placeholder={t("setting.Account.local.changePassword.newAgain", usrIndx)}
+                        type="password"
+                        onChange={e => setNewPassAgain(e.currentTarget.value)}
+                        value={newPassAgain}
+                      />
+                      <br />
+                      <br />
+                      <div className={style["buttonList"]}>
+                        <button kiase-sty="" onClick={() => setPassKey()}>{t("setting.Account.local.changePassword.update", usrIndx)}</button>
+                        <button kiase-sty="" onClick={() => setPassKey(true)}>{t("setting.Account.local.changePassword.remove", usrIndx)}</button>
+                      </div>
+                    </>
+                    :
+                    <>
+                      <KiloDown.Subtitle>{t("setting.Account.local.setPassword", usrIndx)}</KiloDown.Subtitle>
+                      <br />
+                      <input
+                        kiase-sty=""
+                        placeholder={t("setting.Account.local.setPassword.new", usrIndx)}
+                        type="password"
+                        onChange={e => setCurrentPass(e.currentTarget.value)}
+                        value={currentPass}
+                      />
+                      <br />
+                      <br />
+                      <button kiase-sty="" onClick={() => setPassKey()}>{t("setting.Account.local.setPassword.setPass", usrIndx)}</button>
+                    </>}
+
+                  <br />
+                  <br />
+                  <br />
                   <button kiase-sty="" onClick={() => {
-                    newInput.message("你確定你要砍掉這個賬號？", [
-                      { name: "是沒錯", value: "yes", key: "Enter" },
-                      { name: "先不要", value: "" },
+                    newInput.message(t("setting.Account.local.deleteAccount.1", usrIndx), [
+                      { name: t("setting.Account.local.deleteAccount.1.yes", usrIndx), value: "yes", key: "Enter" },
+                      { name: t("setting.Account.local.deleteAccount.1.no", usrIndx), value: "" },
                     ], (e) => {
                       if (e === "yes") {
                         setTimeout(() => {
 
-                          newInput.message("你現在的所有東西都會直接無\n你的下載 你的暫存 你的歷史 都會無", [
-                            { name: "啊對 就是要刪", value: "yes", key: "Enter" },
-                            { name: "啊？那算了", value: "" },
+                          newInput.message(t("setting.Account.local.deleteAccount.2", usrIndx), [
+                            { name: t("setting.Account.local.deleteAccount.2.yes", usrIndx), value: "yes", key: "Enter" },
+                            { name: t("setting.Account.local.deleteAccount.2.no", usrIndx), value: "" },
                           ], (e) => {
                             if (e === "yes") {
                               setTimeout(() => {
 
-                                newInput.message("你真的不在乎這些東西會消失？", [
-                                  { name: "刪掉吧", value: "yes", key: "Delete" },
-                                  { name: "還是會care的 那算了", value: "" },
+                                newInput.message(t("setting.Account.local.deleteAccount.3", usrIndx), [
+                                  { name: t("setting.Account.local.deleteAccount.3.yes", usrIndx), value: "yes", key: "Delete" },
+                                  { name: t("setting.Account.local.deleteAccount.3.no", usrIndx), value: "" },
                                 ], (e) => {
                                   if (e === "yes") {
                                     setWorkSpaceStatus(prev => {
@@ -3009,7 +4407,7 @@ const windowsType = {
                                       _.autoLogin = false
                                       _.rememberPassword = ""
                                       _.lastUser = 0
-                                      _.userList = _.userList.filter((_, i) => i !== userIndex)
+                                      _.userList = _.userList.filter((_, i) => i !== usrIndx)
 
                                       return _
                                     })
@@ -3024,12 +4422,202 @@ const windowsType = {
                         }, .5e3);
                       }
                     })
-                  }}>刪賬號</button>
-                </>
+                  }}>{t("setting.Account.local.deleteAccount", usrIndx)}</button>
+                </div>
+              }
+              case "avatar": {
+                const [avaCfg, setAvaCfg] = useState<workSpaceType.Unit.BaseItem.Image>({
+                  url: ""
+                })
+
+                useEffect(() => {
+                  setAvaCfg(workSpaceStatus.userList[usrIndx].saveInfo.user.avatar)
+                }, [workSpaceStatus])
+
+                const updateVal = (key: keyof workSpaceType.Unit.BaseItem.Image, val: number) => {
+                  setAvaCfg(prev => ({
+                    ...prev,
+                    [key]: val
+                  }))
+                }
+                return <div className={style["Avatar"]}>
+                  <div className={style["positionSet"]}>
+                    <div className={style["frame"]}>
+                      <div
+                        className={style["image"]}
+                        onDragOver={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.currentTarget.classList.add(style["ondrag"])
+                        }}
+
+                        onDragLeave={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.currentTarget.classList.remove(style["ondrag"])
+                        }}
+
+                        onDrop={e => {
+                          if (!e.dataTransfer) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+
+                          const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
+
+                          if (itemdata) {
+                            const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
+                            const { data, type } = item
+                            if (type === "post" || type === "postImg") {
+                              someActions.setAvatar(usrIndx, data.file.url!, data)
+                              setAvaCfg({
+                                url: data.file.url!,
+                                positionX: 50,
+                                positionY: 50,
+                                fromPost: data
+                              })
+                            }
+                          }
+
+                          e.currentTarget.classList.remove(style["ondrag"])
+                        }}
+                      >
+                        <Background bg={avaCfg} />
+                        <div className={style["dragOverlay"]}>
+                          <span>{t("setting.Account.avatar.set", usrIndx)}</span>
+                        </div>
+                      </div>
+                      <div className={style["position"]}>
+                        <div>
+                          <span>{"X:"}</span>
+                          <div>
+                            <input
+                              kilo-style=""
+                              type="range"
+                              step={.5}
+                              max={100}
+                              min={0}
+                              kiase-sty=""
+                              value={avaCfg.positionX ?? 50}
+                              onChange={(e) => updateVal("positionX", +e.currentTarget.value)}
+                            />
+                          </div>
+                          <input
+                            type="number"
+                            kiase-sty=""
+                            step={.5}
+                            max={100}
+                            min={0}
+                            value={avaCfg.positionX ?? 50}
+                            onChange={(e) => updateVal("positionX", +e.currentTarget.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <span>{"Y:"}</span>
+                          <div>
+                            <input
+                              kilo-style=""
+                              type="range"
+                              step={.5}
+                              max={100}
+                              min={0}
+                              kiase-sty=""
+                              value={avaCfg.positionY ?? 50}
+                              onChange={(e) => updateVal("positionY", +e.currentTarget.value)}
+                            />
+                          </div>
+                          <input
+                            type="number"
+                            kiase-sty=""
+                            step={.5}
+                            max={100}
+                            min={0}
+                            value={avaCfg.positionY ?? 50}
+                            onChange={(e) => updateVal("positionY", +e.currentTarget.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <span>{"S:"}</span>
+                          <div>
+                            <input
+                              kilo-style=""
+                              type="range"
+                              step={.5}
+                              max={500}
+                              min={100}
+                              kiase-sty=""
+                              value={avaCfg.scale ?? 100}
+                              onChange={(e) => updateVal("scale", +e.currentTarget.value)}
+                            />
+                          </div>
+                          <input
+                            type="number"
+                            kiase-sty=""
+                            step={.5}
+                            max={500}
+                            min={100}
+                            value={avaCfg.scale ?? 100}
+                            onChange={(e) => updateVal("scale", +e.currentTarget.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <button kiase-sty="" onClick={() => setWorkSpaceStatus(e => {
+                        const _ = cloneDeep(e);
+                        _.userList[usrIndx].saveInfo.user.avatar = avaCfg
+                        return _
+                      })}>{t("setting.Account.avatar.apply", usrIndx)}</button>
+                      <button
+                        kiase-sty=""
+                        onClick={() => someActions.openWithGetByID(avaCfg.fromPost!)}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          dragItem(e, {
+                            type: "post",
+                            data: avaCfg.fromPost!
+                          });
+                        }}
+                      >{t("setting.Account.avatar.source", usrIndx)}</button>
+                    </div>
+                  </div>
+                </div>
               }
               case "e621": {
 
                 return <></>
+              }
+              case "language": {
+
+                const [notic, setNotic] = useState<string>("...")
+
+                const list = Object.entries(langList).map(e => ({
+                  name: e[1].NAME,
+                  notic: e[1].NOTIC,
+                  id: e[0],
+                }))
+
+                return <div className={style["Language"]}>
+                  <div className={style["notic"]}>
+                    <div><span>{notic}</span></div>
+                  </div>
+                  <div className={style["btns"]}>
+                    {list.map(l => <button
+                      className={workSpaceStatus.userList[usrIndx].setting.lang === l.id ? style["activ"] : ""}
+                      onMouseMove={() => setNotic(l.notic)}
+                      onMouseLeave={() => setNotic("...")}
+                      onClick={() => setWorkSpaceStatus(e => {
+                        const _ = cloneDeep(e)
+                        _.userList[usrIndx].setting.lang = l.id
+                        return _
+                      })}
+                      key={l.id}
+                    >
+                      <span>{l.name}</span>
+                      <span>{l.id}</span>
+                    </button>)}
+                  </div>
+                </div>
               }
               case "export/import": {
 
@@ -3067,7 +4655,7 @@ const windowsType = {
                       onClick={() => setWorkSpaceStatus(e => {
                         const _ = cloneDeep(e)
 
-                        _.userList[userIndex].setting.appearance.scale = scale
+                        _.userList[usrIndx].setting.appearance.scale = scale
 
                         return _
                       })}
@@ -3098,7 +4686,7 @@ const windowsType = {
                   }</div >
                   <br />
                   {(() => {
-                    const count = workSpaceStatus.userList[userIndex].setting.appearance.clockFormat.length;
+                    const count = workSpaceStatus.userList[usrIndx].setting.appearance.clockFormat.length;
                     let txt = "";
 
                     if (count > 2) txt = "啊 下面這個....不要放太多....會破版....除非你喜歡破版的感覺.....";
@@ -3108,11 +4696,11 @@ const windowsType = {
                       return <> <KiloDown.SmallText>{txt}</KiloDown.SmallText><br /><br /></>;
                   })()}
                   <SettingEditor.ListEditor
-                    list={workSpaceStatus.userList[userIndex].setting.appearance.clockFormat}
+                    list={workSpaceStatus.userList[usrIndx].setting.appearance.clockFormat}
                     onChange={(e) => {
                       setWorkSpaceStatus(prev => {
                         const _ = cloneDeep(prev);
-                        _.userList[userIndex].setting.appearance.clockFormat = e;
+                        _.userList[usrIndx].setting.appearance.clockFormat = e;
                         return _
                       })
                     }}
@@ -3154,17 +4742,17 @@ const windowsType = {
                 useEffect(() => {
                   (async () => {
 
-                    const wallpaperUrl = workSpaceStatus.userList[userIndex].setting.appearance.wallpaper.url!;
+                    const wallpaperUrl = workSpaceStatus.userList[usrIndx].setting.appearance.wallpaper.url!;
 
                     const out = await LABS_E621_API.other.proxy({ url: wallpaperUrl });
 
                     setColorList(out)
                   })()
 
-                }, [workSpaceStatus.userList[userIndex].setting.appearance.wallpaper])
+                }, [workSpaceStatus.userList[usrIndx].setting.appearance.wallpaper])
 
                 useEffect(() => {
-                  setNewColor(workSpaceStatus.userList[userIndex].setting.appearance.color)
+                  setNewColor(workSpaceStatus.userList[usrIndx].setting.appearance.color)
                 }, [])
 
                 return <>
@@ -3173,7 +4761,7 @@ const windowsType = {
                   <button kiase-sty="" onClick={() => setWorkSpaceStatus((e) => {
                     const _ = cloneDeep(e)
 
-                    _.userList[userIndex].setting.appearance.color = newColor;
+                    _.userList[usrIndx].setting.appearance.color = newColor;
                     _app.setColor(newColor)
 
                     return _
@@ -3189,7 +4777,7 @@ const windowsType = {
                 })
 
                 useEffect(() => {
-                  setBgCfg(workSpaceStatus.userList[userIndex].setting.appearance.wallpaper)
+                  setBgCfg(workSpaceStatus.userList[usrIndx].setting.appearance.wallpaper)
                 }, [workSpaceStatus])
 
                 const updateVal = (key: keyof workSpaceType.Unit.BaseItem.Image, val: number) => {
@@ -3200,143 +4788,145 @@ const windowsType = {
                 }
 
                 return <div className={style["Wallpaper"]}>
-                  <div className={style["frame"]}>
-                    <div
-                      className={style["image"]}
-                      onDragOver={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.classList.add(style["ondrag"])
-                      }}
+                  <div className={style["positionSet"]}>
+                    <div className={style["frame"]}>
+                      <div
+                        className={style["image"]}
+                        onDragOver={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.currentTarget.classList.add(style["ondrag"])
+                        }}
 
-                      onDragLeave={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.classList.remove(style["ondrag"])
-                      }}
+                        onDragLeave={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.currentTarget.classList.remove(style["ondrag"])
+                        }}
 
-                      onDrop={e => {
-                        if (!e.dataTransfer) return;
-                        e.preventDefault();
-                        e.stopPropagation();
+                        onDrop={e => {
+                          if (!e.dataTransfer) return;
+                          e.preventDefault();
+                          e.stopPropagation();
 
-                        const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
+                          const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
 
-                        if (itemdata) {
-                          const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
-                          const { data, type } = item
-                          if (type === "post") {
-                            someActions.setAsWallpaper(userIndex, data.file.url!, data)
-                            setBgCfg({
-                              url: data.file.url!,
-                              positionX: 50,
-                              positionY: 50,
-                              fromPost: data
-                            })
+                          if (itemdata) {
+                            const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
+                            const { data, type } = item
+                            if (type === "post" || type === "postImg") {
+                              someActions.setAsWallpaper(usrIndx, data.file.url!, data)
+                              setBgCfg({
+                                url: data.file.url!,
+                                positionX: 50,
+                                positionY: 50,
+                                fromPost: data
+                              })
+                            }
                           }
-                        }
 
-                        e.currentTarget.classList.remove(style["ondrag"])
-                      }}
-                    >
-                      <Background bg={bgCfg} />
-                      <div className={style["dragOverlay"]}>
-                        <span>Set as Wallpaper</span>
+                          e.currentTarget.classList.remove(style["ondrag"])
+                        }}
+                      >
+                        <Background bg={bgCfg} />
+                        <div className={style["dragOverlay"]}>
+                          <span>{t("setting.Appearance.wallpaper.set", usrIndx)}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className={style["position"]}>
-                      <div>
-                        <span>{"X:"}</span>
+                      <div className={style["position"]}>
                         <div>
+                          <span>{"X:"}</span>
+                          <div>
+                            <input
+                              kilo-style=""
+                              type="range"
+                              step={.5}
+                              max={100}
+                              min={0}
+                              kiase-sty=""
+                              value={bgCfg.positionX ?? 50}
+                              onChange={(e) => updateVal("positionX", +e.currentTarget.value)}
+                            />
+                          </div>
                           <input
-                            kilo-style=""
-                            type="range"
+                            type="number"
+                            kiase-sty=""
                             step={.5}
                             max={100}
                             min={0}
-                            kiase-sty=""
                             value={bgCfg.positionX ?? 50}
                             onChange={(e) => updateVal("positionX", +e.currentTarget.value)}
                           />
                         </div>
-                        <input
-                          type="number"
-                          kiase-sty=""
-                          step={.5}
-                          max={100}
-                          min={0}
-                          value={bgCfg.positionX ?? 50}
-                          onChange={(e) => updateVal("positionX", +e.currentTarget.value)}
-                        />
-                      </div>
 
-                      <div>
-                        <span>{"Y:"}</span>
                         <div>
+                          <span>{"Y:"}</span>
+                          <div>
+                            <input
+                              kilo-style=""
+                              type="range"
+                              step={.5}
+                              max={100}
+                              min={0}
+                              kiase-sty=""
+                              value={bgCfg.positionY ?? 50}
+                              onChange={(e) => updateVal("positionY", +e.currentTarget.value)}
+                            />
+                          </div>
                           <input
-                            kilo-style=""
-                            type="range"
+                            type="number"
+                            kiase-sty=""
                             step={.5}
                             max={100}
                             min={0}
-                            kiase-sty=""
                             value={bgCfg.positionY ?? 50}
                             onChange={(e) => updateVal("positionY", +e.currentTarget.value)}
                           />
                         </div>
-                        <input
-                          type="number"
-                          kiase-sty=""
-                          step={.5}
-                          max={100}
-                          min={0}
-                          value={bgCfg.positionY ?? 50}
-                          onChange={(e) => updateVal("positionY", +e.currentTarget.value)}
-                        />
-                      </div>
 
-                      <div>
-                        <span>{"S:"}</span>
                         <div>
+                          <span>{"S:"}</span>
+                          <div>
+                            <input
+                              kilo-style=""
+                              type="range"
+                              step={.5}
+                              max={500}
+                              min={100}
+                              kiase-sty=""
+                              value={bgCfg.scale ?? 100}
+                              onChange={(e) => updateVal("scale", +e.currentTarget.value)}
+                            />
+                          </div>
                           <input
-                            kilo-style=""
-                            type="range"
+                            type="number"
+                            kiase-sty=""
                             step={.5}
                             max={500}
                             min={100}
-                            kiase-sty=""
                             value={bgCfg.scale ?? 100}
                             onChange={(e) => updateVal("scale", +e.currentTarget.value)}
                           />
                         </div>
-                        <input
-                          type="number"
-                          kiase-sty=""
-                          step={.5}
-                          max={500}
-                          min={100}
-                          value={bgCfg.scale ?? 100}
-                          onChange={(e) => updateVal("scale", +e.currentTarget.value)}
-                        />
                       </div>
-                    </div>
 
-                    <button kiase-sty="" onClick={() => setWorkSpaceStatus(e => {
-                      const _ = cloneDeep(e);
-                      _.userList[userIndex].setting.appearance.wallpaper = bgCfg
-                      return _
-                    })}>{"套用"}</button>
-                    <button
-                      kiase-sty=""
-                      onClick={() => someActions.openWithGetByID(bgCfg.fromPost!)}
-                      draggable={true}
-                      onDragStart={(e) => {
-                        dragItem(e, {
-                          type: "post",
-                          data: bgCfg.fromPost!
-                        });
-                      }}
-                    >{"桌布來源"}</button>
+                      <button kiase-sty="" onClick={() => setWorkSpaceStatus(e => {
+                        const _ = cloneDeep(e);
+                        _.userList[usrIndx].setting.appearance.wallpaper = bgCfg
+                        return _
+                      })}>{t("setting.Appearance.wallpaper.apply", usrIndx)}</button>
+                      <button
+                        kiase-sty=""
+                        onClick={() => someActions.openWithGetByID(bgCfg.fromPost!)}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          dragItem(e, {
+                            type: "post",
+                            data: bgCfg.fromPost!
+                          });
+                        }}
+                      >{t("setting.Appearance.wallpaper.source", usrIndx)}</button>
+                    </div>
                   </div>
                 </div>
               }
@@ -3347,35 +4937,56 @@ const windowsType = {
               case "general": {
 
                 return <div className={style["Information"]}>
-                  <h1>E621 App</h1>
-                  <h2>inDev Version</h2>
-                  <h3>{navigator.appVersion}</h3>
+                  <div className={style["Background"]}>
+                    <NODATA.Fetching />
+                  </div>
+                  <div className={style["Text"]}>
+                    <div className={style["Frame"]}>
+                      <h1>E621 App</h1>
+                      <h2>inDev 0.0.2</h2>
+                      <h3>{navigator.appVersion}</h3>
 
-                  <br />
+                      <br />
 
-                  <h2>
-                    用視窗化的方式 來用你的E621
-                    <br />
-                    十分好玩 下次別玩了
-                  </h2>
+                      <h2>
+                        {t("setting.Information.general.line.1", usrIndx).map((e: string) => <>{e}<br /></>)}
+                      </h2>
 
-                  <br />
+                      <br />
 
-                  <h4>
-                    寫這個東西 還是很開心的
+                      <h4>
+                        {t("setting.Information.general.line.2", usrIndx).map((e: string) => <>{e}<br /></>)}
+                        <br />
+                        <br />
+                        <a href="https://github.com/kiasenolo/E621-App/" kilo-style="" target="_blank">{t("setting.Information.general.repoLink", usrIndx)}</a>
+                      </h4>
+                    </div>
                     <br />
-                    雖然 真的有夠難寫
-                    <br />
-                    但是起碼 我做到了
-                    <br />
-                    直覺的交互 直覺的邏輯
-                    <br />
-                    還有吃效能的動畫 欸十分好
-                    <br />
-                    反正 就 也算是圓了一個KILO OS的夢吧
-                    <br />
-                    我不知道 反正 就這樣
-                  </h4>
+                    <button kiase-sty="" onClick={() => functions.download(functions.toBase64(JSON.stringify(workSpaceStatus)), "Default.wss")}>Save</button>
+                    <button kiase-sty="" onClick={() => {
+                      newInput.message(
+                        "會覆蓋掉你的所有東西",
+                        [{ name: "先不要", value: "" }, { name: "行", value: "ok", key: "Enter" }],
+                        async (e) => {
+                          if (e !== "ok") return;
+                          const inp = document.createElement("input")
+                          inp.type = "file"; inp.accept = ".wss"; inp.click();
+                          inp.onchange = (ev) => {
+                            const files = (ev.target as HTMLInputElement).files;
+                            if (files && files[0]) {
+                              const reader = new FileReader();
+                              reader.onload = (loadEv) => {
+                                try {
+                                  setWorkSpaceStatus(JSON.parse(functions.fromBase64(loadEv.target?.result?.toString() ?? "{}")));
+                                } catch (err) { console.error("Import failed", err); newInput.message("Import Failed"); }
+                              };
+                              reader.readAsText(files[0]);
+                            }
+                          }
+                        }
+                      )
+                    }}>Inmport</button>
+                  </div>
                 </div>
               }
             }
@@ -3406,24 +5017,23 @@ const windowsType = {
         [
           windowAction(windowID),
           [
-            "Categorie",
-            [
-              [
-                "Home",
-                () => setNowPage("NONE")
-              ],
-              ...settingTabs.categorieList.map(e => [functions.str.capitalizeWords(e), () => {
-                setNowPage({
-                  categorie: e,
-                  pages: settingTabs.pageList[e]![0] as any
-                })
-              }]) as MenuAction.Item[]
+            t("menuButton.top.Category", usrIndx),
+            [[
+              t("setting.Home", usrIndx),
+              () => setNowPage("NONE")
+            ],
+            ...settingTabs.categorieList.map(e => [tCategory(e), () => {
+              setNowPage({
+                categorie: e,
+                pages: settingTabs.pageList[e]![0] as any
+              })
+            }]) as MenuAction.Item[]
             ]
           ],
           ...(nowPage !== "NONE" ?
             [[
-              "Tab",
-              settingTabs.pageList[nowPage.categorie].map(e => [functions.str.capitalizeWords(e), () => {
+              t("menuButton.top.Tab", usrIndx),
+              settingTabs.pageList[nowPage.categorie].map(e => [tPage(nowPage.categorie, e), () => {
                 setNowPage({
                   categorie: nowPage.categorie,
                   pages: e as any
@@ -3467,22 +5077,42 @@ const windowsType = {
                 }}>
                 <div className={style["icon"]}>{e[1]}</div>
                 <div className={style["index"]}>{i + 1}</div>
-                <div className={style["name"]}>{functions.str.capitalizeWords(e[0])}</div>
+                <div className={style["name"]}>{tCategory(e[0])}</div>
               </button>)
           }
 
         </div>
         <div className={style["setting"]}>
           {nowPage === "NONE" ? "none :p" : <SettingAndList nowPage={nowPage} key={nowPage.categorie} />}
+          <div className={[style["tabs"], showTabs && style["display"]].join(" ")}>
+            <div className={style["list"]}>
+              {settingTabs.categorieList.map((e, i) => <span
+                className={[
+                  style["cart"],
+                  nowPage === "NONE" ? "" : e === nowPage.categorie ? style["activ"] : ""
+                ].join(" ")}
+                onMouseEnter={() => { setNowPage({ categorie: e, pages: settingTabs.pageList[e][0] as any }) }}
+                key={i}
+              >
+                {tCategory(e)}
+              </span>)}
+            </div>
+          </div>
         </div>
       </WINDOW_FRAME >
     )
   },
   tmpList: function () {
     const windowID = "tmp-list"
+    const thisWindow = wmRef.current?.getWindow(windowID);
+
     const [start, setStart] = useState<boolean>(false)
 
     const eRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+      thisWindow?.setTitle(t("windowsType.tmpList", usrIndx))
+    }, [])
 
     useEffect(() => {
       void eRef.current!.clientHeight
@@ -3492,6 +5122,39 @@ const windowsType = {
     return (
       <WINDOW_FRAME className={style["tmpList"]} menulist={[
         windowAction(windowID),
+        [
+          t("menuButton.top.Data", usrIndx),
+          [
+            [
+              t("menuButton.ClearAll", usrIndx),
+              () => {
+                newInput.message("確定清空暫存列表？？", [
+                  { name: "確定", value: "yes", key: "Enter" },
+                  { name: "先等等", value: "" },
+                ], (e) => {
+                  if (e === "yes") {
+                    setTimeout(() => {
+
+                      newInput.message("你裏面存的東西都會無欸", [
+                        { name: "那就無吧", value: "yes", key: "Delete" },
+                        { name: "啊？那算了", value: "" },
+                      ], (e) => {
+                        if (e === "yes") {
+                          setWorkSpaceStatus(prev => {
+                            const _ = cloneDeep(prev)
+                            _.userList[usrIndx].saves.tmpList = []
+                            return _
+                          })
+                        }
+                      })
+
+                    }, .5e3);
+                  }
+                })
+              }
+            ]
+          ]
+        ]
       ]}>
         <div
           className={[style["list"], start ? style["START"] : ""].join(" ")}
@@ -3509,7 +5172,7 @@ const windowsType = {
               const { data, type } = item
               if (type === "post") {
                 const id = data.id;
-                someActions.saveToTmp(userIndex, {
+                someActions.saveToTmp(usrIndx, {
                   type: "postGetByID",
                   data: {
                     currentId: data.id,
@@ -3518,11 +5181,13 @@ const windowsType = {
                   }
                 }, `Post Get By ID [ ${data.id} ]`, `post_get_by_id-${data.id}`)
               } else if (type === "postSearch") {
-                someActions.saveToTmp(userIndex, { type: "postSearch", data: item.data }, item.thisWindow!.title, item.thisWindow!.id)
+                someActions.saveToTmp(usrIndx, { type: "postSearch", data: item.data }, item.thisWindow!.title, item.thisWindow!.id)
+              } else if (type === "pool") {
+                someActions.saveToTmp(usrIndx, { type: "pool", data: item.data }, item.thisWindow!.title, item.thisWindow!.id)
               } else if (type === "tag") {
                 if (data.action === "=") {
                   const createAt = new Date().getTime()
-                  someActions.saveToTmp(userIndex,
+                  someActions.saveToTmp(usrIndx,
                     {
                       type: "postSearch",
                       data: {
@@ -3537,7 +5202,7 @@ const windowsType = {
             }
           }}
         >
-          {workSpaceStatus.userList[userIndex].saves.tmpList.map((item, index) => {
+          {workSpaceStatus.userList[usrIndx].saves.tmpList.map((item, index) => {
             const baseDely = index * .05
             return <div
               key={item.createAt}
@@ -3562,7 +5227,7 @@ const windowsType = {
                       setWorkSpaceStatus(prev => {
                         const _ = cloneDeep(prev)
 
-                        _.userList[userIndex].saves.tmpList = _.userList[userIndex].saves.tmpList
+                        _.userList[usrIndx].saves.tmpList = _.userList[usrIndx].saves.tmpList
                           .map((item, i) => {
                             if (i !== index) return item;
                             if (item.data.type !== "postSearch") return item;
@@ -3597,7 +5262,7 @@ const windowsType = {
                       setWorkSpaceStatus(prev => {
                         const _ = cloneDeep(prev)
 
-                        _.userList[userIndex].saves.tmpList = _.userList[userIndex].saves.tmpList
+                        _.userList[usrIndx].saves.tmpList = _.userList[usrIndx].saves.tmpList
                           .map((item, i) => {
                             if (i !== index) return item;
                             if (item.data.type !== "postSearch") return item;
@@ -3652,8 +5317,8 @@ const windowsType = {
                         () => {
                           setWorkSpaceStatus(prev => {
                             const _ = cloneDeep(prev)
-                            const list = cloneDeep(_.userList[userIndex].saves.tmpList)
-                            _.userList[userIndex].saves.tmpList = list.filter(_item => {
+                            const list = cloneDeep(_.userList[usrIndx].saves.tmpList)
+                            _.userList[usrIndx].saves.tmpList = list.filter(_item => {
                               return _item.createAt !== item.createAt
                             })
                             return _
@@ -3663,7 +5328,7 @@ const windowsType = {
                       [
                         <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px"><path d="M378-524q16.33-21.33 44.67-34.67Q451-572 481.33-572q58 0 96 38t38 96q0 58-38 96.33-38 38.34-96 38.34-39.33 0-71.16-19-31.84-19-49.5-50-5.34-9-15.5-12.5-10.17-3.5-19.17 1.5-10.67 5-13.83 15.83-3.17 10.83 2.5 20.5 24.66 44.67 68.33 70.5t98.33 25.83q78 0 132.67-54.66Q668.67-360 668.67-438q0-78-54.67-132.67-54.67-54.66-132.67-54.66-42.66 0-78.33 17.33t-60.33 42.67v-42q0-10.34-7.17-17.5Q328.33-632 318-632t-17.83 7.17q-7.5 7.16-7.5 17.5v108q0 10.33 7.5 17.83 7.5 7.5 17.83 7.5h109.33q10.34 0 17.5-7.5Q452-489 452-499.33q0-10.34-7.17-17.5-7.16-7.17-17.5-7.17H378ZM226.67-80q-27 0-46.84-19.83Q160-119.67 160-146.67v-666.66q0-27 19.83-46.84Q199.67-880 226.67-880H533q13.33 0 25.83 5.33 12.5 5.34 21.5 14.34l200 200q9 9 14.34 21.5Q800-626.33 800-613v466.33q0 27-19.83 46.84Q760.33-80 733.33-80H226.67Zm0-66.67h506.66v-464.66l-202-202H226.67v666.66Zm0 0v-666.66V-146.67Z" /></svg>,
                         () => {
-                          const targetID = item.windowId || `${item.createAt}`;
+                          const targetID = item.windowId || `${item.createAt}`; // 相容舊資料，如果有 windowId 則用它
 
                           const pureId = targetID.replace(/^(post_search-|post-|post_get_by_id-|pool-)/, "");
 
@@ -3739,38 +5404,138 @@ someActions.openWithGetByID = (post) => {
   if (wmRef.current?.getWindow(windowID))
     wmRef.current.bringToFront(windowID)
   else
-    wmRef.current?.createWindow({
-      id: windowID,
-      title: `Post [ ${postID} ]`,
-      children: <windowsType.postGetByID id={`${postID}`} />,
-      customData: {
-        type: "postGetByID",
-        data: {
-          currentId: postID,
-          status: "success",
-          fetchedPost: post
-        }
+    createWindow(wmRef, {
+      type: "postGetByID",
+      data: {
+        currentId: postID,
+        status: "success",
+        fetchedPost: post
       }
     })
 }
-
 
 someActions.openWithViewer = (post) => {
   const windowID = `viewer-${post.id}`
-  const postID = post.id
   if (wmRef.current?.getWindow(windowID))
     wmRef.current.bringToFront(windowID)
   else
-    wmRef.current?.createWindow({
-      id: windowID,
-      title: `viewer [ ${postID} ]`,
-      children: <windowsType.viewer id={`${postID}`} />,
-      customData: {
-        type: "viewer",
-        data: post
-      }
+    createWindow(wmRef, {
+      type: "viewer",
+      data: post
     })
 }
+
+createWindow = (wmRef, customData, other) => {
+  const wm = wmRef.current
+  const createAt = new Date().getTime()
+
+  const hasId = (winID: string) => {
+    if (wm?.getWindow(winID)) {
+      wm?.bringToFront(winID)
+      const win = wm?.getWindow(winID)
+      win?.setRect({ top: other?.top, left: other?.left }, "px")
+      return true
+    } else {
+      return false
+    }
+  }
+
+  switch (customData.type) {
+    case "setting": {
+      const id = `app-setting`;
+
+      if (hasId(id)) return id;
+
+      return wm?.createWindow({
+        id,
+        title: t("windowsType.setting", usrIndx),
+        children: <windowsType.setting />,
+        ...other,
+        customData,
+      });
+    }
+
+    case "tmp": {
+      const id = `tmp-list`;
+
+      if (hasId(id)) return id;
+
+      return wm?.createWindow({
+        id,
+        title: t("windowsType.tmpList", usrIndx),
+        children: <windowsType.tmpList />,
+        ...other,
+        customData,
+      })
+    }
+  }
+
+
+  switch (customData.type) {
+
+    case "postSearch": {
+      const id = `post_search-${createAt}`;
+
+      if (hasId(id)) return id;
+
+      return wm?.createWindow({
+        id,
+        title: `${t("windowsType.postSearch", usrIndx)} [ ${createAt} ]`,
+        children: <windowsType.postSearch id={`${createAt}`} />,
+        ...other,
+        customData,
+      })
+    }
+
+    case "postGetByID": {
+      const { data } = customData
+      const cId = data.currentId;
+      const id = `post_get_by_id-${cId}`;
+
+      if (hasId(id)) return id;
+
+      return wm?.createWindow({
+        id,
+        title: `${t("windowsType.postGetByID", usrIndx)} [ ${cId} ]`,
+        children: <windowsType.postGetByID id={`${cId}`} />,
+        ...other,
+        customData,
+      })
+    }
+
+    case "pool": {
+      const { data } = customData
+      const pId = data.poolId;
+      const id = `pool-${pId}`;
+
+      if (hasId(id)) return id;
+
+      return wm?.createWindow({
+        id,
+        title: `${t("windowsType.pool", usrIndx)} [ ${pId} ]`,
+        children: <windowsType.pool id={`${pId}`} />,
+        ...other,
+        customData,
+      })
+    }
+
+    case "viewer": {
+      const { data } = customData;
+      const pId = data.id;
+      const id = `viewer-${pId}`;
+
+      if (hasId(id)) return id;
+
+      return wm?.createWindow({
+        id,
+        title: `${t("windowsType.viewer", usrIndx)} [ ${pId} ]`,
+        children: <windowsType.viewer id={`${pId}`} />,
+        ...other,
+        customData,
+      })
+    }
+  }
+};
 
 const Menu = () => {
   const [menuDisplay, setMenuDisplay] = useState<boolean>(false);
@@ -3895,6 +5660,69 @@ const Desktop = () => {
   const [switcherIndex, setSwitcherIndex] = useState(0);
   const originalStatesRef = useRef<Map<string, { isMinimized: boolean, isFocused: boolean }>>(new Map());
 
+  wmRef = useRef<WindowManager<e621Type.defaul> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragCancelAreaRef = useRef<HTMLDivElement>(null);
+
+  const [startMenu, setStartMenu] = useState<boolean>(false)
+
+  const [snap, setSnap] = useState<SnapPosition | null>(null)
+  const snapElementRef = useRef<HTMLDivElement>(null);
+
+  const applySnapshot = useCallback((snapshot: WindowSnapshot<e621Type.defaul>[]) => {
+    const wm = wmRef.current
+    if (wm) {
+      wm.applySnapshot(
+        snapshot,
+        (windowId, customData) => {
+
+          if (!customData) return <div>Error: No Data</div>;
+
+          switch (customData.type) {
+            case "postSearch":
+              const pureId = windowId.replace("post_search-", "");
+
+              return <windowsType.postSearch id={pureId} />;
+
+            case "post":
+              return <windowsType.post id={windowId.replace("post-", "")} />;
+
+            case "postGetByID":
+              return <windowsType.postGetByID id={windowId.replace("post_get_by_id-", "")} />;
+
+            case "pool":
+              return <windowsType.pool id={windowId.replace("pool-", "")} />;
+
+            case "viewer":
+              return <windowsType.viewer id={windowId.replace("viewer-", "")} />;
+
+            case "setting":
+              return <windowsType.setting />;
+
+            case "tmp":
+              return <windowsType.tmpList />;
+
+            default:
+              return <div>Unknown Window Type</div>;
+          }
+        }
+      );
+    }
+  }, [])
+
+  const saveWinStatus = useCallback(() => {
+    const wm = wmRef.current
+    if (!wm) return;
+    _app.clearNotic()
+    _app.throwNotic("Windows Status Saved!")
+    setWorkSpaceStatus((e) => {
+      e.userList[usrIndx].windowsStatus = wm.captureSnapshot()
+      return e
+    })
+  }, [])
+
+
+  /* 時鐘更新 */
   useEffect(() => {
 
     const interval = setInterval(() => {
@@ -3906,23 +5734,22 @@ const Desktop = () => {
     }
   }, [])
 
-  const [startMenu, setStartMenu] = useState<boolean>(false)
-
-  wmRef = useRef<WindowManager<e621Type.defaul> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
+  /* 很爛的 Shift Tab */
   useEffect(() => {
     const wm = wmRef.current;
     if (!wm) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 觸發條件：Shift + Tab
       if (e.shiftKey && e.code === "Tab") {
         e.preventDefault();
 
         if (!switcherOpen) {
+          // --- 第一次按下：初始化切換器 ---
           const allWindows = wm.getWindows();
           if (allWindows.length === 0) return;
 
+          // 1. 儲存目前的狀態
           const snapshot = new Map();
           allWindows.forEach(win => {
             const instance = wm.getWindow(win.id);
@@ -3930,16 +5757,20 @@ const Desktop = () => {
               isMinimized: instance?.isMinimized,
               isFocused: instance?.isFocused
             });
+            // 2. 全部最小化
             instance?.minimize();
           });
           originalStatesRef.current = snapshot;
 
+          // 3. 設定初始索引 (通常切換到下一個視窗)
           const nextIdx = (switcherIndex + 1) % allWindows.length;
           setSwitcherIndex(nextIdx);
           setSwitcherOpen(true);
 
+          // 4. 聚焦第一個選中的視窗
           wm.getWindow(allWindows[nextIdx].id)?.focus();
         } else {
+          // --- 已經在切換中：循環視窗 ---
           const allWindows = wm.getWindows();
           allWindows.forEach(win => {
             const instance = wm.getWindow(win.id);
@@ -3947,6 +5778,7 @@ const Desktop = () => {
           });
           const nextIdx = (switcherIndex + 1) % allWindows.length;
 
+          // 保持其他視窗最小化，聚焦當前選擇的
           wm.getWindow(allWindows[nextIdx].id)?.focus();
           setSwitcherIndex(nextIdx);
         }
@@ -3954,18 +5786,22 @@ const Desktop = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      // 當放開 Shift 鍵時，結束切換
       if (e.key === "Shift" && switcherOpen) {
         const allWindows = wm.getWindows();
         const selectedWinId = allWindows[switcherIndex]?.id;
         const snapshot = originalStatesRef.current;
 
+        // 恢復所有視窗之前的狀態
         allWindows.forEach(win => {
           const prevState = snapshot.get(win.id);
           const instance = wm.getWindow(win.id);
 
           if (win.id === selectedWinId) {
+            // 被選中的視窗：確保它是打開且聚焦的
             instance?.focus();
           } else {
+            // 其他視窗：恢復之前的縮放狀態
             if (prevState?.isMinimized) {
               instance?.minimize();
             } else {
@@ -3993,6 +5829,7 @@ const Desktop = () => {
     };
   }, [switcherOpen, switcherIndex, windowsList]);
 
+  /* 給Menu用的滑鼠按下去 */
   useEffect(() => {
     if (!mouseIsPress) return
 
@@ -4006,6 +5843,7 @@ const Desktop = () => {
     }
   }, [mouseIsPress])
 
+  /* 一些全域的快速鍵 */
   useEffect(() => {
     let keyispress = false
 
@@ -4038,6 +5876,7 @@ const Desktop = () => {
     }
   }, [])
 
+  /* 二些全域的快速鍵 */
   useEffect(() => {
     let keyispress = false
 
@@ -4052,21 +5891,72 @@ const Desktop = () => {
         keyispress = true
         windowsList
           .map(e => wmRef.current?.getWindow(e.id)!)
-          .filter(e => e.isFocused)[0].close();
+          .filter(e => e.isFocused)[0]?.close();
       }
 
-      if (e.ctrlKey && (e.code === "ArrowDown")) {
-        keyispress = true
+      if (e.altKey) {
         const win = windowsList
           .map(e => wmRef.current?.getWindow(e.id)!)
           .filter(e => e.isFocused)[0];
 
-        if (win.isMaximized) {
-          win.toggleMaximize();
-        } else {
-          win.minimize();
+        const ev = (e: KeyboardEvent) => {
+          keyispress = true
+          e.preventDefault()
+        }
+
+        switch (e.code) {
+          case "ArrowDown": {
+            ev(e)
+            if (win.isMaximized) {
+              win.toggleMaximize();
+            } else {
+              win.minimize();
+            }
+            break;
+          }
+
+          case "ArrowUp": {
+            ev(e)
+            if (!win.isMaximized) {
+              win.toggleMaximize();
+            }
+            break;
+          }
+
+          case "Comma": {
+            ev(e)
+            win.minimize();
+            break;
+          }
+
+          case "ArrowLeft": {
+            ev(e)
+            if (!win.isMaximized) {
+              win.setRect({
+                height: 100,
+                width: 50,
+                left: 0,
+                top: 0,
+              }, "%");
+            }
+            break;
+          }
+
+          case "ArrowRight": {
+            ev(e)
+            if (!win.isMaximized) {
+              win.setRect({
+                height: 100,
+                width: 50,
+                left: 50,
+                top: 0,
+              }, "%");
+            }
+            break;
+          }
         }
       }
+
     }
 
     document.addEventListener("keydown", keydown)
@@ -4078,96 +5968,171 @@ const Desktop = () => {
     }
   }, [windowsList])
 
+  /* 桌布更新 */
   useEffect(() => {
-    const { setting, saves } = workSpaceStatus.userList[userIndex]
+    const { setting, saves } = workSpaceStatus.userList[usrIndx]
     const wallpaper = setting.appearance.wallpaper
     setBackground(typeof wallpaper === "number" ? saves.wallpapers[wallpaper] : wallpaper)
     _app.setColor(setting.appearance.color)
   }, [workSpaceStatus]);
 
+  /* 初始化wm */
   useEffect(() => {
     if (containerRef.current && !wmRef.current) {
       wmRef.current = new WindowManager(containerRef.current);
     }
   }, []);
 
+  /* 初始化狀態 */
   useEffect(() => {
     const wm = wmRef.current
     if (wm) {
-      if (workSpaceStatus.userList[userIndex].windowsStatus) {
-        wm.applySnapshot(
-          workSpaceStatus.userList[userIndex].windowsStatus,
-          (windowId, customData) => {
-
-            if (!customData) return <div>Error: No Data</div>;
-
-            switch (customData.type) {
-              case "postSearch":
-                const pureId = windowId.replace("post_search-", "");
-
-                return <windowsType.postSearch id={pureId} />;
-
-              case "post":
-                return <windowsType.post id={windowId.replace("post-", "")} />;
-
-              case "postGetByID":
-                return <windowsType.postGetByID id={windowId.replace("post_get_by_id-", "")} />;
-
-              case "pool":
-                return <windowsType.pool id={windowId.replace("pool-", "")} />;
-
-              case "viewer":
-                return <windowsType.viewer id={windowId.replace("viewer-", "")} />;
-
-              case "setting":
-                return <windowsType.setting />;
-
-              case "tmp":
-                return <windowsType.tmpList />;
-
-              default:
-                return <div>Unknown Window Type</div>;
-            }
-          }
-        );
+      if (workSpaceStatus.userList[usrIndx].windowsStatus) {
+        applySnapshot(workSpaceStatus.userList[usrIndx].windowsStatus)
         setWindowsList(wm.getWindows())
       }
     }
   }, []);
 
+  /* 語言改了 重開視窗 */
   useEffect(() => {
     const wm = wmRef.current
     if (wm) {
-      const update = () => {
-        if (switcherOpen) return;
-        if (!wm) return;
-        setWindowsList(wm.getWindows())
-        setWorkSpaceStatus((e) => {
-          e.userList[userIndex].windowsStatus = wm.captureSnapshot()
-          return e
-        })
-      }
+      const wins = wm.captureSnapshot()
+      wm.getWindows().forEach(e => wm.getWindow(e.id)?.close())
+      setTimeout(() => {
+        applySnapshot(wins)
+      }, .3e3)
+    }
+  }, [workSpaceStatus.userList[usrIndx].setting.lang]);
 
-      wm.addEventListener("create", update)
-      wm.addEventListener("close", update)
-      wm.addEventListener("focus", update)
-      wm.addEventListener("moveEnd", update)
-      wm.addEventListener("resizeEnd", update)
-      wm.addEventListener("idupdate", update)
+  /* 關是窗前先問你個問題 */
+  useEffect(() => {
+    const awa = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+      saveWinStatus()
+    }
 
-      return () => {
-        if (wm) {
-          wm.removeEventListener("create", update)
-          wm.removeEventListener("close", update)
-          wm.removeEventListener("focus", update)
-          wm.removeEventListener("moveEnd", update)
-          wm.removeEventListener("resizeEnd", update)
-          wm.removeEventListener("idupdate", update)
-        }
+    window.addEventListener('beforeunload', awa)
+
+    return () => {
+      window.removeEventListener('beforeunload', awa)
+    }
+  }, [])
+
+  /* 工作列更新 */
+  useEffect(() => {
+    const wm = wmRef.current
+    if (!wm) return;
+
+    const update = () => {
+      setWindowsList(wm.getWindows())
+    }
+
+    wm.addEventListener("create", update)
+    wm.addEventListener("close", update)
+    wm.addEventListener("focus", update)
+    wm.addEventListener("moveEnd", update)
+    wm.addEventListener("resizeEnd", update)
+    wm.addEventListener("idupdate", update)
+
+    return () => {
+      if (wm) {
+        wm.removeEventListener("create", update)
+        wm.removeEventListener("close", update)
+        wm.removeEventListener("focus", update)
+        wm.removeEventListener("moveEnd", update)
+        wm.removeEventListener("resizeEnd", update)
+        wm.removeEventListener("idupdate", update)
       }
     }
-  }, [switcherOpen])
+  })
 
+  useEffect(() => {
+    const wm = wmRef.current
+    if (!wm) return;
+
+    const end = () => setSnap(null);
+
+    const prev = (data: {
+      id: string;
+      snapPosition: SnapPosition | null;
+    }) => {
+      setSnap(data.snapPosition)
+    };
+
+    wm.addEventListener("snapPreview", prev)
+    wm.addEventListener("snapEnd", end)
+
+
+    return () => {
+      if (wm) {
+        wm.removeEventListener("snapPreview", prev)
+        wm.removeEventListener("snapEnd", end)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const wm = wmRef.current
+    const snEle = snapElementRef.current
+    if (!wm) return;
+    if (!snEle) return;
+    const { style: sty } = snEle
+
+    const prev = (data: {
+      id: string;
+      rect?: WindowRect;
+    }) => {
+      if (snap) return;
+      sty.width = data.rect?.width + "%"
+      sty.height = data.rect?.height + "%"
+      sty.top = data.rect?.top + "%"
+      sty.left = data.rect?.left + "%"
+    };
+
+    wm.addEventListener("move", prev)
+
+    return () => {
+      if (wm) {
+        wm.removeEventListener("move", prev)
+      }
+    }
+  }, [snap])
+
+  /* 手動存工作區狀態 啊他會自動幫你存 放心 */
+  useEffect(() => {
+    const wm = wmRef.current
+    let isPress = false
+
+    if (!wm) return;
+
+    const intr = setInterval(saveWinStatus, 300e3)
+
+    const event = (e: KeyboardEvent) => {
+      if (isPress) return;
+      if (e.ctrlKey && (e.code === "KeyS")) {
+        isPress = true
+        if (!wm) return;
+        e.preventDefault();
+        saveWinStatus()
+      }
+    }
+    const up = () => {
+      isPress = false
+    }
+
+    document.addEventListener("keydown", event)
+    document.addEventListener("keyup", up)
+    return () => {
+      document.removeEventListener("keydown", event)
+      document.removeEventListener("keyup", up)
+      clearInterval(intr)
+    }
+  }, [])
+
+  /* TmpList的更新 */
   useEffect(() => {
     const winID = "tmp-list"
 
@@ -4176,8 +6141,140 @@ const Desktop = () => {
         children: <windowsType.tmpList />
       })
     }
-  }, [workSpaceStatus.userList[userIndex].saves.tmpList])
+  }, [workSpaceStatus.userList[usrIndx].saves.tmpList])
 
+  /* 全局的拖放 */
+  useEffect(() => {
+    const dragoverEvent = (e: DragEvent) => e.preventDefault();
+    const dropEvent = (e: DragEvent) => {
+
+      if (!e.dataTransfer) return;
+
+      const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
+      const item = e.dataTransfer.items[0]
+
+      if (itemdata) {
+        const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
+        const { data, type } = item
+
+        const position = {
+          left: e.clientX - 400,
+          top: e.clientY - 300,
+        }
+
+        switch (type) {
+          case "post": {
+            createWindow(wmRef,
+              {
+                type: "postGetByID",
+                data: {
+                  currentId: data.id,
+                  status: "success",
+                  fetchedPost: data
+                }
+              }, position)
+            break;
+          };
+          case "postId": {
+            createWindow(wmRef,
+              {
+                type: "postGetByID",
+                data: {
+                  currentId: data,
+                  status: "loading",
+                }
+              }, position)
+            break;
+          };
+          case "pool": {
+            createWindow(wmRef,
+              {
+                type: "pool",
+                data
+              }, position)
+            break;
+          }
+          case "poolId": {
+            createWindow(wmRef,
+              {
+                type: "pool",
+                data: {
+                  poolId: data,
+                  nowPage: 1,
+                  pageCache: {},
+                }
+              }, position)
+            break;
+          }
+          case "postSearch": {
+            createWindow(wmRef,
+              {
+                type: "postSearch",
+                data
+              }, position)
+            break;
+          };
+          case "tag": {
+            if (data.action === "=") {
+              createWindow(wmRef,
+                {
+                  type: "postSearch",
+                  data: {
+                    nowPage: 1,
+                    pageCache: [],
+                    searchTags: [data.tag],
+                  }
+                }, position)
+            }
+            break;
+          };
+          case "postImg": {
+            createWindow(wmRef,
+              {
+                type: "viewer",
+                data: data
+              }, position)
+            break;
+          };
+          case "temp": {
+            createWindow(wmRef,
+              {
+                type: "tmp",
+              }, position)
+            break;
+          };
+        };
+      } else if (item) {
+        if (item.kind !== "string") return;
+
+      }
+    }
+    document.addEventListener("dragover", dragoverEvent)
+    document.addEventListener("drop", dropEvent)
+
+    return () => {
+      document.removeEventListener("dragover", dragoverEvent)
+      document.removeEventListener("drop", dropEvent)
+    };
+  }, [])
+
+  /* 全局的拖放 but 上面那條 cancel */
+  useEffect(() => {
+    const area = dragCancelAreaRef.current
+    if (!area) return;
+    const dragstart = () => area.classList.add(style["activ"]);
+    const dragend = () => area.classList.remove(style["activ"]);
+
+    document.addEventListener("dragstart", dragstart);
+    document.addEventListener("dragend", dragend);
+
+    return () => {
+      document.removeEventListener("dragstart", dragstart);
+      document.removeEventListener("dragend", dragend);
+    };
+  }, [])
+
+  /* AppSetting的更新 */
   useEffect(() => {
     const winID = "app-setting"
 
@@ -4188,9 +6285,9 @@ const Desktop = () => {
     }
   },
     [
-      workSpaceStatus.userList[userIndex].setting,
-      workSpaceStatus.userList[userIndex].history,
-      workSpaceStatus.userList[userIndex].saveInfo.user,
+      workSpaceStatus.userList[usrIndx].setting,
+      workSpaceStatus.userList[usrIndx].history,
+      workSpaceStatus.userList[usrIndx].saveInfo.user,
     ]
   )
 
@@ -4210,15 +6307,17 @@ const Desktop = () => {
     const win = wmRef.current?.getWindow(id)
 
     return [
-      ["Reset Rect 95", () => { win?.setRect({ width: 95, height: 95, left: 2.5, top: 2.5 }) }],
-      ["Reset Rect 90", () => { win?.setRect({ width: 90, height: 90, left: 5, top: 5 }) }],
-      ["Reset Rect 85", () => { win?.setRect({ width: 85, height: 85, left: 7.5, top: 7.5 }) }],
-      ["Reset Rect 80", () => { win?.setRect({ width: 80, height: 80, left: 10, top: 10 }) }],
-      ["Restore", () => { win?.focus() }],
-      ["Close", () => { win?.close() }],
+      [t("menuButton.ResetRect", usrIndx).replace("$1", 95), () => { win?.setRect({ width: 95, height: 95, left: 2.5, top: 2.5 }) }],
+      [t("menuButton.ResetRect", usrIndx).replace("$1", 90), () => { win?.setRect({ width: 90, height: 90, left: 5, top: 5 }) }],
+      [t("menuButton.ResetRect", usrIndx).replace("$1", 85), () => { win?.setRect({ width: 85, height: 85, left: 7.5, top: 7.5 }) }],
+      [t("menuButton.ResetRect", usrIndx).replace("$1", 80), () => { win?.setRect({ width: 80, height: 80, left: 10, top: 10 }) }],
+      [t("menuButton.Restore", usrIndx), () => { win?.focus() }],
+      [t("menuButton.Close", usrIndx), () => { win?.close() }],
     ]
   }
 
+  /* 寫這坨注解的時候 就是爲了找這個 */
+  /* 這個是他媽的 初始化動畫 */
   useEffect(() => {
     (async () => {
       await functions.timeSleep(.5e3)
@@ -4227,7 +6326,7 @@ const Desktop = () => {
   }, [])
 
   return (
-    <div id={style["Desktop"]} className={style["hide"]} style={{ zoom: `${workSpaceStatus.userList[userIndex].setting.appearance.scale}%` }}>
+    <div id={style["Desktop"]} className={style["hide"]} style={{ zoom: `${workSpaceStatus.userList[usrIndx].setting.appearance.scale}%` }}>
 
       <Menu />
 
@@ -4240,9 +6339,10 @@ const Desktop = () => {
                 {
                   ([
                     [
-                      "Logout",
+                      t("startMenuSide.logout", usrIndx),
                       <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z" /></svg>,
                       () => {
+                        saveWinStatus()
                         setWorkSpaceStatus(prev => {
                           const _ = cloneDeep(prev)
                           _.autoLogin = false
@@ -4253,23 +6353,20 @@ const Desktop = () => {
                       }
                     ],
                     [
-                      "Setting",
+                      t("startMenuSide.appSetting", usrIndx),
                       <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"><path d="M433-80q-27 0-46.5-18T363-142l-9-66q-13-5-24.5-12T307-235l-62 26q-25 11-50 2t-39-32l-47-82q-14-23-8-49t27-43l53-40q-1-7-1-13.5v-27q0-6.5 1-13.5l-53-40q-21-17-27-43t8-49l47-82q14-23 39-32t50 2l62 26q11-8 23-15t24-12l9-66q4-26 23.5-44t46.5-18h94q27 0 46.5 18t23.5 44l9 66q13 5 24.5 12t22.5 15l62-26q25-11 50-2t39 32l47 82q14 23 8 49t-27 43l-53 40q1 7 1 13.5v27q0 6.5-2 13.5l53 40q21 17 27 43t-8 49l-48 82q-14 23-39 32t-50-2l-60-26q-11 8-23 15t-24 12l-9 66q-4 26-23.5 44T527-80h-94Zm7-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z" /></svg>,
-                      () => {
-                        const winID = `app-setting`
-                        wmRef.current?.createWindow({
-                          id: winID,
-                          title: "App Setting",
-                          children: <windowsType.setting />,
-                          customData: {
-                            type: "setting",
-                            data: "NONE"
-                          }
-                        })
-
-                      }
+                      () => createWindow(wmRef, {
+                        type: "setting",
+                        data: "NONE"
+                      })
                     ],
-                  ] as [string, JSX.Element, () => {}][]).map((e, i) => <button key={i} hover-tips={e[0]} onClick={() => { e[2](); setStartMenu(false) }}>{e[1]}</button>)
+                    [
+                      t("startMenuSide.console", usrIndx),
+                      <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H160v400Zm187-200-76-76q-12-12-11.5-28t12.5-28q12-11 28-11.5t28 11.5l104 104q12 12 12 28t-12 28L328-308q-11 11-27.5 11.5T272-308q-11-11-11-28t11-28l75-76Zm173 160q-17 0-28.5-11.5T480-320q0-17 11.5-28.5T520-360h160q17 0 28.5 11.5T720-320q0 17-11.5 28.5T680-280H520Z" /></svg>,
+                      () => Kiasole.toggle(),
+                      true,
+                    ],
+                  ] as ([string, JSX.Element, () => {}] | [string, JSX.Element, () => {}, boolean])[]).map((e, i) => <button key={i} hover-tips={e[0]} onClick={() => { e[2](); setStartMenu(false) }} style={{ marginTop: e[3] ? "auto" : "" }}>{e[1]}</button>)
                 }
               </div>
             </div>
@@ -4278,76 +6375,82 @@ const Desktop = () => {
               {
                 ([
                   [
-                    "Post Search",
+                    t("windowsType.postSearch", usrIndx),
                     <svg xmlns="http://www.w3.org/2000/svg" height="50px" viewBox="0 -960 960 960" width="50px"><path d="M378-329q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z" /></svg>,
                     () => {
-                      const createAt = new Date().getTime()
-                      wmRef.current?.createWindow({
-                        id: `post_search-${createAt}`,
-                        title: `Post Search [ ${createAt} ]`,
-                        children: <windowsType.postSearch id={`${createAt}`} />,
-                        customData: {
-                          type: "postSearch",
-                          data: {
-                            nowPage: 1,
-                            pageCache: [],
-                            searchTags: [],
-                          }
+                      createWindow(wmRef, {
+                        type: "postSearch",
+                        data: {
+                          nowPage: 1,
+                          pageCache: [],
+                          searchTags: [],
                         }
                       })
+                    },
+                    {
+                      type: "postSearch",
+                      data: {
+                        nowPage: 1,
+                        pageCache: [],
+                        searchTags: [],
+                      }
                     }
                   ],
                   [
-                    "Get Post by ID",
+                    t("windowsType.postGetByID", usrIndx),
                     <svg xmlns="http://www.w3.org/2000/svg" height="50px" viewBox="0 -960 960 960" width="50px"><path d="M378-329q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z" /></svg>,
                     () => {
-                      const devID = 5613429;
-                      const winID = `post_get_by_id-${devID}`;
-
-                      if (wmRef.current?.hasWindowID(winID)) {
-                        wmRef.current.bringToFront(winID);
-                        return;
-                      }
-
-                      wmRef.current?.createWindow({
-                        id: winID,
-                        title: `Post Get By ID [ ${devID} ]`,
-                        children: <windowsType.postGetByID id={`${devID}`} />,
-                        customData: {
-                          type: "postGetByID",
-                          data: {
-                            currentId: devID,
-                            status: "loading",
-                          }
+                      createWindow(wmRef, {
+                        type: "postGetByID",
+                        data: {
+                          currentId: 5613429,
+                          status: "loading",
                         }
-                      });
+                      })
+                    },
+                    {
+                      type: "postId",
+                      data: 5613429,
                     }
                   ],
                   [
-                    "Temp List",
+                    t("windowsType.pool", usrIndx),
                     <svg xmlns="http://www.w3.org/2000/svg" height="50px" viewBox="0 -960 960 960" width="50px"><path d="M378-329q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z" /></svg>,
                     () => {
-                      const winID = `tmp-list`;
-
-                      if (wmRef.current?.hasWindowID(winID)) {
-                        wmRef.current.bringToFront(winID);
-                        return;
-                      }
-
-                      wmRef.current?.createWindow({
-                        id: winID,
-                        title: `Temp List`,
-                        customData: {
-                          type: "tmp",
-                        },
-                        children: <windowsType.tmpList />
-                      });
+                      createWindow(wmRef, {
+                        type: "pool",
+                        data: {
+                          poolId: 44182,
+                          nowPage: 1,
+                          pageCache: {},
+                        }
+                      })
+                    },
+                    {
+                      type: "poolId",
+                      data: 44182
                     }
                   ],
-                ] as [string, JSX.Element, () => {}][]).map((e, i) => <div key={i}
+                  [
+                    t("windowsType.tmpList", usrIndx),
+                    <svg xmlns="http://www.w3.org/2000/svg" height="50px" viewBox="0 -960 960 960" width="50px"><path d="M378-329q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z" /></svg>,
+                    () => {
+                      createWindow(wmRef, {
+                        type: "tmp"
+                      })
+                    },
+                    {
+                      type: "temp",
+                    }
+                  ],
+                ] as ([string, JSX.Element, () => {}, e621Type.DragItemType.defaul] | [string, JSX.Element, () => {}])[]).map((e, i) => <div key={i}
                   style={{
                     transitionDelay: startMenu ? `${(i * .05) + .2}s` : ""
-                  }}>
+                  }}
+                  draggable={e.length === 4}
+                  onDragStart={ev => { e[3] ? dragItem(ev, e[3]) : ""; }}
+                  onDrag={() => setStartMenu(false)}
+                >
                   <button onClick={() => {
                     e[2]()
                     setStartMenu(false)
@@ -4364,11 +6467,95 @@ const Desktop = () => {
               }
             </div>
           </div>
+
+          <div className={style["SnapPreview"]}>
+            <div
+              ref={snapElementRef}
+              style={(() => {
+                switch (snap) {
+
+                  case "top": return {
+                    width: "100%",
+                    height: "100%",
+                    left: "0",
+                    top: "0",
+                  }
+
+                  case "left": return {
+                    width: "50%",
+                    height: "100%",
+                    left: "0",
+                    top: "0",
+                  }
+
+                  case "right": return {
+                    width: "50%",
+                    height: "100%",
+                    left: "50%",
+                    top: "0",
+                  }
+
+                  case "top-left": return {
+                    width: "50%",
+                    height: "50%",
+                    left: "0",
+                    top: "0",
+                  }
+
+                  case "top-right": return {
+                    width: "50%",
+                    height: "50%",
+                    left: "50%",
+                    top: "0",
+                  }
+
+                  case "bottom-left": return {
+                    width: "50%",
+                    height: "50%",
+                    left: "0",
+                    top: "50%",
+                  }
+
+                  case "bottom-right": return {
+                    width: "50%",
+                    height: "50%",
+                    left: "50%",
+                    top: "50%",
+                  }
+
+                  case null: return {
+                    opacity: 0
+                  }
+
+                }
+              })()}
+            />
+          </div>
+
           <div className={style["Windows"]} ref={containerRef}></div>
+
+          <div className={style["CancelDrag"]}>
+            <div className={style["main"]} ref={dragCancelAreaRef}>
+              <div className={style["bg"]} />
+
+              <div className={style["btn"]}>
+                <div
+                  className={style["area"]}
+                  onDragEnter={e => { e.currentTarget.classList.add(style["activ"]) }}
+                  onDragLeave={e => { e.currentTarget.classList.remove(style["activ"]) }}
+                  onDrop={e => { e.currentTarget.classList.remove(style["activ"]); StopEvent(e) }}
+                >
+                  <span>{t("Desktop.drag.Cancel", usrIndx)}</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
         <div className={style["Bar"]}>
           <div className={style["Left"]}>
-            <Button onDrop={e => { e.preventDefault(); e.stopPropagation(); }} status={startMenu ? "isOpen" : "icon"} title="StartMenu" onClick={() => setStartMenu(e => !e)}>
+            <Button onDrop={e => { e.preventDefault(); e.stopPropagation(); }} status={startMenu ? "isOpen" : "icon"} title={t("taskBar.startMenu", usrIndx)} onClick={() => setStartMenu(e => !e)}>
               <svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px"><path d="M450-450H200v-60h250v-250h60v250h250v60H510v250h-60v-250Z" /></svg>
             </Button>
           </div>
@@ -4458,7 +6645,7 @@ const Desktop = () => {
 
           </div>
           <div className={style["Right"]}>
-            {workSpaceStatus.userList[userIndex].setting.appearance.clockFormat.map((e, i) => <div>{cnvFormat.clock(clock, e)}</div>)}
+            {workSpaceStatus.userList[usrIndx].setting.appearance.clockFormat.map((e, i) => <div>{cnvFormat.clock(clock, e)}</div>)}
           </div>
         </div>
       </div>
@@ -4500,7 +6687,7 @@ const Login = () => {
     if (isPassCorrect) {
       setIsLogin(true)
 
-      userIndex = targetIndex
+      usrIndx = targetIndex
 
       setWorkSpaceStatus(e => {
         const _ = cloneDeep(e)
@@ -4576,7 +6763,7 @@ const Login = () => {
     if (auto) {
       if (!psKy || (psKy && psKy === pass)) {
 
-        userIndex = lastUser
+        usrIndx = lastUser
 
         setSelectUser(lastUser)
 
@@ -4608,7 +6795,7 @@ const Login = () => {
     owo.forEach(e => e.value = "")
   }, [selectUser, isLogin])
 
-  const EmptyUser = useMemo(() => EmptyAccount({ name: "New Accout", id: ".w." }), [])
+  const EmptyUser = useMemo(() => EmptyAccount({ name: "New Account", id: ".w." }), [])
 
   return (<div id={style["Login"]} className={style["hide"]} >
 
@@ -4834,103 +7021,22 @@ export default function () {
   [isLogin, setIsLogin] = useState<boolean>(false);
 
   useEffect(() => {
-    const dragoverEvent = (e: DragEvent) => e.preventDefault();
-    const dropEvent = (e: DragEvent) => {
+    setWorkSpaceStatus(e => {
+      const _ = cloneDeep(e)
 
-      if (!e.dataTransfer) return;
+      const empt = EmptyAccount({ id: "", name: "" })
+      _.userList = _.userList.map(e => merge({}, empt, e))
 
-      const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
-      const item = e.dataTransfer.items[0]
-
-      if (itemdata) {
-        const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
-        const { data, type } = item
-        switch (type) {
-          case "post": {
-            const id = data.id;
-            const winID = `post_get_by_id-${id}`;
-            if (wmRef.current?.getWindow(winID)) {
-              wmRef.current?.bringToFront(winID)
-              wmRef.current?.getWindow(winID)?.setRect({
-                left: e.clientX - 400,
-                top: e.clientY - 300,
-              }, "px")
-            } else {
-              wmRef.current?.createWindow({
-                left: e.clientX - 400,
-                top: e.clientY - 300,
-                id: winID,
-                title: `Post Get By ID [ ${id} ]`,
-                children: <windowsType.postGetByID id={`${id}`} />,
-                customData: {
-                  type: "postGetByID",
-                  data: {
-                    currentId: id,
-                    status: "success",
-                    fetchedPost: data
-                  }
-                }
-              });
-            }
-            break;
-          };
-          case "postSearch": {
-            const createAt = new Date().getTime()
-            wmRef.current?.createWindow({
-              left: e.clientX - 400,
-              top: e.clientY - 300,
-              id: `post_search-${createAt}`,
-              title: `Post Search [ ${createAt} ]`,
-              children: <windowsType.postSearch id={`${createAt}`} />,
-              customData: {
-                type: "postSearch",
-                data
-              }
-            })
-            break;
-          };
-          case "tag": {
-            if (data.action === "=") {
-              const createAt = new Date().getTime()
-              wmRef.current?.createWindow({
-                left: e.clientX - 400,
-                top: e.clientY - 300,
-                id: `post_search-${createAt}`,
-                title: `Post Search [ ${createAt} ]`,
-                children: <windowsType.postSearch id={`${createAt}`} />,
-                customData: {
-                  type: "postSearch",
-                  data: {
-                    nowPage: 1,
-                    pageCache: [],
-                    searchTags: [data.tag],
-                  }
-                }
-              })
-            }
-            break;
-          };
-        };
-      } else if (item) {
-        if (item.kind !== "string") return;
-
-      }
-    }
-    document.addEventListener("dragover", dragoverEvent)
-    document.addEventListener("drop", dropEvent)
-
-    return () => {
-      document.removeEventListener("dragover", dragoverEvent)
-      document.removeEventListener("drop", dropEvent)
-    }
+      return _
+    })
   }, [])
 
   return (
     <>
       <div id={style["Frame"]} >
 
-        {!isLogin ? <Login key={userIndex} /> : <></>}
-        {isLogin ? <Desktop key={userIndex} /> : <></>}
+        {!isLogin ? <Login key={usrIndx} /> : <></>}
+        {isLogin ? <Desktop key={usrIndx} /> : <></>}
 
       </div >
     </>

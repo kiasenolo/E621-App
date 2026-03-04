@@ -21,7 +21,7 @@
     align-content: center;
     flex-wrap: wrap;
     gap: 10px;
-    padding: 100px;
+    padding: 0 100px;
 
     button {
       aspect-ratio: 1;
@@ -113,7 +113,7 @@
 
     .frame {
       display: grid;
-      grid-template-columns: 300px 1fr;
+      grid-template-columns: 250px 1fr;
       overflow: hidden;
 
       .list {
@@ -241,6 +241,11 @@
             padding: 5px 10px;
             font-size: 14px;
             flex-grow: 1;
+            width: 250px;
+
+            &::placeholder {
+              color: Color(1, .3);
+            }
 
             &:hover {
               background-color: Color(.3);
@@ -292,10 +297,8 @@
           gap: 10px;
         }
 
-        .Wallpaper {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
+        .positionSet {
+          @include FlexCenter2();
 
           .frame {
             width: 500px;
@@ -305,7 +308,6 @@
             gap: 10px;
 
             .image {
-              height: 300px;
               aspect-ratio: 16/9;
               @include GridFrame();
 
@@ -360,31 +362,144 @@
           }
         }
 
+        .Wallpaper,
+        .Avatar {
+          @include GridFrame();
+          height: 100%;
+        }
+
+        .Avatar {
+          .frame {
+            width: 350px;
+
+            .image {
+              aspect-ratio: 1;
+            }
+          }
+        }
+
+        .Language {
+          height: 100%;
+          @include GridFrame();
+
+          .notic {
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+
+            div {
+              background-color: Color(.2);
+              @include FlexCenter2();
+              height: 60px;
+
+              span {
+                font-size: 20px;
+              }
+            }
+          }
+
+          .btns {
+            padding-top: 70px;
+            gap: 10px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            z-index: 1;
+
+            button {
+              background-color: Color(.1);
+              padding: 10px;
+              display: flex;
+              flex-direction: column;
+              border: none;
+              overflow: none;
+
+              :first-child {
+                font-size: 20px;
+              }
+
+              :last-child {
+                font-size: 17px;
+                opacity: .5;
+              }
+
+              &.activ {
+                background-color: Color(.3);
+              }
+
+              &:hover,
+              &:active {
+                transition: none;
+                background-color: Color(.8);
+
+                * {
+                  transition: none;
+                  color: #000 !important;
+                }
+              }
+
+              &:active {
+                background-color: Color();
+              }
+
+
+
+            }
+          }
+        }
+
         .Information {
-          padding: 10px;
+          height: 100%;
+          @include GridFrame();
+          overflow: hidden;
 
-          * {
-            font-family: hack-nerd-font;
+          .Background {
+            z-index: 1;
+            opacity: .4;
           }
 
-          h1,
-          h2,
-          h3,
-          h4 {
-            margin: 5px 10px;
-          }
+          .Text {
+            overflow: auto;
+            z-index: 2;
 
-          h1 {
-            font-size: 40px;
-          }
+            .Frame {
+              padding: 10px;
 
-          h2 {
-            font-size: 20px;
-          }
+              * {
+                font-family: hack-nerd-font;
+              }
 
-          h3 {
-            opacity: .5;
-            font-size: 15px;
+              h1,
+              h2,
+              h3,
+              h4 {
+                margin: 5px 10px;
+              }
+
+              h1 {
+                font-size: 40px;
+              }
+
+              h2 {
+                font-size: 20px;
+              }
+
+              h3 {
+                opacity: .5;
+                font-size: 15px;
+              }
+            }
+          }
+        }
+
+        .Account {
+          .avatar {
+            aspect-ratio: 1;
+            height: 100px;
           }
         }
 
@@ -393,6 +508,46 @@
             transform: none;
             opacity: 1;
           }
+        }
+      }
+    }
+
+    .tabs {
+      pointer-events: none;
+      z-index: 2;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+
+      .list {
+        margin-bottom: 50px;
+        display: flex;
+        gap: 5px;
+        padding: 8px;
+        background-color: Color(.2);
+        transform: translateY(110%);
+        transition: .3s cubic-bezier(0, 0, .8, 0);
+        opacity: 0;
+
+        .cart {
+          font-size: 15px;
+          padding: 8px 20px;
+          background-color: Color(.15);
+
+          &.activ {
+            transition: none;
+            background-color: Color();
+            color: #000 !important;
+          }
+        }
+      }
+
+      &.display {
+        .list {
+          pointer-events: all;
+          transform: none;
+          transition: DefaultTransition();
+          opacity: 1;
         }
       }
     }

@@ -52,7 +52,7 @@
       .text {
         display: grid;
         grid-template-columns: 1fr auto;
-        background: Color(.5);
+        background: Color(.4);
         overflow: hidden;
 
         .score {
@@ -76,40 +76,16 @@
               z-index: 10;
               padding-left: 20px;
               background: Color(.08);
-
-              .icon {
-                color: color-mix(in oklab, Color() 69.6%, #00ff00 37.8%);
-              }
-
-              &.here {
-                .icon {
-                  color: color-mix(in oklab, Color() 10%, #00ff00 90%);
-                }
-              }
             }
 
             &.down {
               z-index: 5;
               background: Color(.2);
-
-              .icon {
-                color: color-mix(in oklab, Color() 69.6%, #ff0000 37.8%);
-              }
-
-              &.here {
-                .icon {
-                  color: color-mix(in oklab, Color() 10%, #ff0000 90%);
-                }
-              }
             }
 
             &.fav {
               z-index: 0;
               background: Color(.3);
-
-              .icon {
-                color: color-mix(in oklab, Color() 40%, #ff8484 50%);
-              }
             }
           }
         }
@@ -142,7 +118,7 @@
   }
 
   .Action {
-    z-index: 3;
+    z-index: 4;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -156,6 +132,22 @@
         opacity: .5;
         padding: 5px 10px !important;
       }
+    }
+  }
+
+  .Ext {
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    overflow: hidden;
+    pointer-events: none;
+
+    div {
+      color: Color();
+      padding: 6.5px 10px;
+      background-color: Color(.08, .3);
+      backdrop-filter: $blur-effect-5;
     }
   }
 

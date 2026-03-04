@@ -1,37 +1,37 @@
 @use "/styles/value" as *;
 
-.postSearch {
-  .BackgroundMask {
-    @include GridFrame();
+.postSearch,
+.pool {
+
+  .BackgroundMask,
+  .PaginationControls,
+  .TagEditor,
+  .Filter {
     pointer-events: none;
-    z-index: 1;
 
-    .PaginationControls,
-    .TagEditor {
+    .InnerFrame {
+      pointer-events: all;
+    }
+  }
 
-      .InnerFrame {
-        background-color: Color(.3, .7);
+  .PaginationControls,
+  .TagEditor {
+    z-index: 3;
+    display: grid;
 
-        * {
-          opacity: 0;
-        }
-      }
+    .InnerFrame {
+      backdrop-filter: $blur-effect;
+      background-color: Color(.2, .4);
     }
   }
 
   .PaginationControls {
-    z-index: 2;
-    display: grid;
     grid-template-rows: 1fr auto;
-    pointer-events: none;
 
     .InnerFrame {
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
-      background-color: Color(.2, .1);
-      backdrop-filter: $blur-effect-3;
-      pointer-events: all;
 
       button {
         font-size: 20px !important;
@@ -50,25 +50,20 @@
   }
 
   .TagEditor {
-    z-index: 2;
-    pointer-events: none;
-    display: grid;
     grid-template-rows: auto 1fr;
 
     .InnerFrame {
-      pointer-events: all;
       overflow: auto;
-      backdrop-filter: $blur-effect-3;
-      @include GridFrame();
-      background-color: Color(.08, .5);
+      display: flex;
 
       input {
+        flex-grow: 1;
         background: none;
         outline: none;
         border: none;
         font-size: 25px;
         padding: 10px 50px;
-        opacity: .5;
+        opacity: .8;
 
         &:hover,
         &:focus {
@@ -78,6 +73,114 @@
         &:focus {
           background-color: Color(.08, .8);
         }
+      }
+
+      button {
+        background-color: Color(.1);
+        border: none;
+        text-align: center;
+        padding: 0 15px;
+
+        svg {
+          fill: Color();
+        }
+
+        &.activ {
+          background-color: Color(.5);
+        }
+
+        &:hover,
+        &:active {
+          transition: none;
+          background-color: Color();
+          color: #000 !important;
+
+          svg {
+            fill: #000;
+          }
+        }
+
+        &:active {
+          filter: brightness(.5);
+        }
+      }
+    }
+  }
+
+  .Filter {
+    z-index: 2;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    overflow: hidden;
+
+    .InnerFrame {
+      background-color: Color(.08, .6);
+      width: 400px;
+      overflow: auto;
+      padding: 60px 0px;
+      transform: translateX(100%);
+      opacity: 0;
+      transition: cubic-bezier(.49, 0, 1, .55) .3s;
+
+      div {
+        h1 {
+          text-align: center;
+          letter-spacing: 5px;
+          font-weight: normal;
+          background-color: Color(1);
+          color: #000 !important;
+          padding: 5px;
+        }
+
+        h2 {
+          padding: 10px 20px;
+          font-weight: normal;
+          background-color: Color(1, .1);
+        }
+
+        .btns {
+          display: flex;
+          gap: 5px;
+          padding: 0 10px;
+
+          button {
+            flex-grow: 1;
+            background-color: Color(.1);
+            border: none;
+            text-align: center;
+            padding: 8px 15px;
+            font-size: 17px;
+
+            &.activ {
+              background-color: Color(.4);
+
+            }
+
+            &:hover,
+            &:active {
+              transition: none;
+              background-color: Color();
+              color: #000 !important;
+            }
+
+            &:active {
+              filter: brightness(.5);
+            }
+          }
+        }
+      }
+
+      &:hover {
+        background-color: Color(.1, .9);
+      }
+    }
+
+    &.display {
+      .InnerFrame {
+        transform: none;
+        opacity: 1;
+        transition: DefaultTransition();
       }
     }
   }
@@ -198,7 +301,7 @@
     }
 
     &.show {
-      background-color: Color(.1, .8);
+      background-color: Color(.05, .8);
       clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
       pointer-events: all;
 

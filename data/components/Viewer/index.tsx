@@ -1,16 +1,35 @@
 import style from "./style.module.scss";
 import { useEffect, useRef, useState } from "react";
-import functions from "@/data/module/functions";
 import { NextPage } from "next";
 
 type randerMode = "pixelated" | "auto";
 
+const lang = {
+  "resetTransform": "Reset Transform",
+  "randerMode": "Rander Mode : ",
+  "randerMode.auto": "Auto",
+  "randerMode.pixelated": "Pixelated",
+}
+
 export type ViewerProps = {
   defaultRanderMode?: randerMode;
   backgroundColor?: string;
+  tTranslate?: {
+    "resetTransform"?: string
+    "randerMode"?: string
+    "randerMode.auto"?: string
+    "randerMode.pixelated"?: string
+  }
 }
 
 const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
+  const t = (key: keyof typeof lang) => {
+    const list = Prop.tTranslate ?? lang;
+
+    const tt = list[key] ?? lang[key];
+
+    return tt;
+  };
   const [bgColor, setBgColor] = useState<string>(Prop.defaultRanderMode ?? "#00000000");
   const [randerMode, setRanderMode] = useState<randerMode>(Prop.defaultRanderMode ?? "auto");
   const [state, setState] = useState<{ x: number, y: number, scale: number, }>({ x: 0, y: 0, scale: 0, })
@@ -23,7 +42,7 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
   useEffect(() => {
     const gestureLayer = gestureRef.current;
     const transformLayer = transformRef.current;
-    const resetBtn = resetBtnRef.current
+    const resetBtn = resetBtnRef.current;
 
     const ZOOM_MAX = 100;
     const ZOOM_MIN = .1;
@@ -57,14 +76,14 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
 
     function updateTransform() {
       transformLayer!.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
-      setState({ x: state.x, y: state.y, scale: state.scale })
+      setState({ x: state.x, y: state.y, scale: state.scale });
     }
 
     function resetTransform() {
-      state.x = 0
-      state.y = 0
-      state.scale = 1
-      updateTransform()
+      state.x = 0;
+      state.y = 0;
+      state.scale = 1;
+      updateTransform();
     }
 
     function trackMovement(currentX: number, currentY: number) {
@@ -99,7 +118,7 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
       state.vy = 0;
     }
 
-    function applyReleaseVelocity(lastPageX: number, lastPageY: number) {
+    function applyReleaseVelocity() {
       const now = performance.now();
       const history = historyRef.current;
 
@@ -127,6 +146,7 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
 
     const handleTouchStartOrEnd = (e: TouchEvent) => {
       const touches = e.touches;
+      const rect = gestureLayer.getBoundingClientRect();
 
       if (e.type === 'touchstart') {
         stopInertia();
@@ -134,35 +154,39 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
       }
 
       if (touches.length === 1) {
-        state.lastX = touches[0].pageX;
-        state.lastY = touches[0].pageY;
+        state.lastX = touches[0].clientX - rect.left;
+        state.lastY = touches[0].clientY - rect.top;
         trackMovement(state.lastX, state.lastY);
       } else if (touches.length === 2) {
         state.lastDist = Math.hypot(
-          touches[0].pageX - touches[1].pageX,
-          touches[0].pageY - touches[1].pageY
+          touches[0].clientX - touches[1].clientX,
+          touches[0].clientY - touches[1].clientY
         );
-        state.lastX = (touches[0].pageX + touches[1].pageX) / 2;
-        state.lastY = (touches[0].pageY + touches[1].pageY) / 2;
+        state.lastX = (touches[0].clientX + touches[1].clientX) / 2 - rect.left;
+        state.lastY = (touches[0].clientY + touches[1].clientY) / 2 - rect.top;
       }
 
       if (e.type === 'touchend' && touches.length === 0) {
-        applyReleaseVelocity(state.lastX, state.lastY);
+        applyReleaseVelocity();
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       const touches = e.touches;
+      const rect = gestureLayer.getBoundingClientRect();
 
       if (touches.length === 1) {
-        const deltaX = touches[0].pageX - state.lastX;
-        const deltaY = touches[0].pageY - state.lastY;
+        const currentX = touches[0].clientX - rect.left;
+        const currentY = touches[0].clientY - rect.top;
+
+        const deltaX = currentX - state.lastX;
+        const deltaY = currentY - state.lastY;
 
         state.x += deltaX;
         state.y += deltaY;
-        state.lastX = touches[0].pageX;
-        state.lastY = touches[0].pageY;
+        state.lastX = currentX;
+        state.lastY = currentY;
 
         trackMovement(state.lastX, state.lastY);
 
@@ -170,11 +194,11 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
         historyRef.current = [];
 
         const currentDist = Math.hypot(
-          touches[0].pageX - touches[1].pageX,
-          touches[0].pageY - touches[1].pageY
+          touches[0].clientX - touches[1].clientX,
+          touches[0].clientY - touches[1].clientY
         );
-        const currentX = (touches[0].pageX + touches[1].pageX) / 2;
-        const currentY = (touches[0].pageY + touches[1].pageY) / 2;
+        const currentX = (touches[0].clientX + touches[1].clientX) / 2 - rect.left;
+        const currentY = (touches[0].clientY + touches[1].clientY) / 2 - rect.top;
 
         const rawZoom = currentDist / state.lastDist;
         let nextScale = state.scale * rawZoom;
@@ -202,35 +226,42 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
       stopInertia();
       historyRef.current = [];
 
+      const rect = gestureLayer.getBoundingClientRect();
+
       state.isDragging = true;
-      state.mouseX = e.pageX;
-      state.mouseY = e.pageY;
+      state.mouseX = e.clientX - rect.left;
+      state.mouseY = e.clientY - rect.top;
       gestureLayer.style.cursor = "grabbing";
 
-      trackMovement(e.pageX, e.pageY);
+      trackMovement(state.mouseX, state.mouseY);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!state.isDragging) return;
       e.preventDefault();
 
-      const deltaX = e.pageX - state.mouseX;
-      const deltaY = e.pageY - state.mouseY;
+      const rect = gestureLayer.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const currentY = e.clientY - rect.top;
+
+      const deltaX = currentX - state.mouseX;
+      const deltaY = currentY - state.mouseY;
 
       state.x += deltaX;
       state.y += deltaY;
 
-      state.mouseX = e.pageX;
-      state.mouseY = e.pageY;
+      state.mouseX = currentX;
+      state.mouseY = currentY;
 
-      trackMovement(e.pageX, e.pageY);
+      trackMovement(currentX, currentY);
       updateTransform();
     };
 
     const handleMouseUp = (e: MouseEvent) => {
+      if (!state.isDragging) return;
       state.isDragging = false;
       gestureLayer.style.cursor = "grab";
-      applyReleaseVelocity(e.pageX, e.pageY);
+      applyReleaseVelocity();
     };
 
     const handleWheel = (e: WheelEvent) => {
@@ -244,8 +275,10 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
       let nextScale = state.scale * (1 + direction * ZOOM_SPEED);
       nextScale = Math.max(ZOOM_MIN, Math.min(nextScale, ZOOM_MAX));
       const effectiveZoom = nextScale / state.scale;
+
       const currentX = e.clientX - rect.left;
       const currentY = e.clientY - rect.top;
+
       state.x -= (currentX - state.x) * (effectiveZoom - 1);
       state.y -= (currentY - state.y) * (effectiveZoom - 1);
       state.scale = nextScale;
@@ -261,7 +294,7 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
 
-    resetBtn.addEventListener("click", resetTransform)
+    resetBtn.addEventListener("click", resetTransform);
 
     gestureLayer.addEventListener("wheel", handleWheel, { passive: false });
 
@@ -276,7 +309,7 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
 
-      resetBtn.removeEventListener("click", resetTransform)
+      resetBtn.removeEventListener("click", resetTransform);
 
       gestureLayer.removeEventListener("wheel", handleWheel);
     };
@@ -292,8 +325,8 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
         <div className={style["GUI"]}>
           <div className={style["Bar"]}>
             <div className={style["Contro"]}>
-              <button ref={resetBtnRef}>{"Reset Transform"}</button>
-              <button onClick={() => setRanderMode(e => e === "pixelated" ? "auto" : "pixelated")}>{`Rander Mode : ${functions.str.capitalizeWords(randerMode)}`}</button>
+              <button ref={resetBtnRef}>{t("resetTransform")}</button>
+              <button onClick={() => setRanderMode(e => e === "pixelated" ? "auto" : "pixelated")}>{`${t("randerMode")}${randerMode === "auto" ? t("randerMode.auto") : t("randerMode.pixelated")}`}</button>
               <input type="color" onChange={e => setBgColor(e.currentTarget.value)} />
             </div>
             <div className={style["Value"]}><span>{`X:${~~(state.x)} // Y:${~~(state.y)} // S:${~~(state.scale * 100)}%`}</span></div>
@@ -309,4 +342,4 @@ const Viewer: NextPage<React.ComponentProps<"div"> & ViewerProps> = (Prop) => {
   );
 }
 
-export default Viewer
+export default Viewer;

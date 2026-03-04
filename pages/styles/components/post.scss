@@ -97,7 +97,8 @@
         .key {
           transform: translateX(-20px);
           text-align: right;
-          padding-left: 10px;
+          padding-left: 20px;
+          white-space: nowrap;
         }
 
         .value {
@@ -158,6 +159,24 @@
       display: flex;
     }
 
+    .SubPost {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+
+      >div {
+        display: flex;
+        justify-content: center;
+      }
+
+      :first-child {
+        justify-content: start;
+      }
+
+      :last-child {
+        justify-content: end;
+      }
+    }
+
     .Description {
       padding: 10px;
 
@@ -204,6 +223,7 @@
     }
 
     .Preview {
+
       .Image,
       .Video {
 

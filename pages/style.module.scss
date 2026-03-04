@@ -201,7 +201,23 @@
       z-index: 5;
       @include GridFrame();
 
+      .SnapPreview {
+        z-index: 100;
+        pointer-events: none;
+
+        div {
+          position: relative;
+          background-color: Color(.1, .8);
+          width: 100%;
+          height: 100%;
+          top: 0%;
+          left: 0%;
+        }
+      }
+
       .Windows {
+        z-index: 50;
+
         >* {
           pointer-events: all;
         }
@@ -331,6 +347,79 @@
                 * {
                   transition: none;
                 }
+              }
+            }
+          }
+        }
+      }
+
+      .CancelDrag {
+        z-index: 1145141919810;
+
+        &,
+        * {
+          pointer-events: none;
+        }
+
+        .main {
+          $tf: cubic-bezier(.24, -0.01, .99, .34);
+          height: 150px;
+          @include GridFrame();
+
+          .bg {
+            z-index: 1;
+            background: linear-gradient(0deg, Color(.02, 0) 25%, Color(.02, .5) 100%);
+            opacity: 0;
+          }
+
+          .btn {
+            z-index: 2;
+            @include FlexCenter2();
+            transform: translateY(-100%);
+            transition: $tf .3s;
+
+            .area {
+              border: 2px solid #0000;
+              outline: 2px solid Color(1, 0);
+              padding: 6px 0px;
+              opacity: 0;
+
+              span {
+                background-color: Color(.3);
+                color: Color();
+                padding: 6px 30px;
+              }
+
+              &.activ {
+                border: 5px solid #0000;
+                outline: 2px solid Color(1, .5);
+                transform: scale(1.2);
+
+                *,
+                & {
+                  transition: all 0s, transform DefaultTransition();
+                }
+
+                span {
+                  background-color: Color();
+                  color: #000;
+                }
+              }
+            }
+          }
+
+          &.activ {
+            .bg {
+              opacity: 1;
+            }
+
+            .btn {
+              transform: translateY(-10%);
+              transition: DefaultTransition();
+
+              .area {
+                pointer-events: all;
+                opacity: 1;
               }
             }
           }

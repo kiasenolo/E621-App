@@ -5,10 +5,9 @@ import { Dispatch, ReactNode, RefObject, SetStateAction, useCallback, useEffect,
 import colormgr from '@/data/module/functions/color'
 import functions from '@/data/module/functions'
 import HeadSetting from '@/data/components/HeadSetting'
-
 import style from './_app.module.scss'
 import consoleStyle from './_app.styles/console.module.scss'
-
+import WebEffect from '@/data/module/WebEffect'
 
 export let _powerSaveingMode = true
 export let _setPowerSaveingMode: Dispatch<SetStateAction<boolean>> = () => { }
@@ -16,18 +15,55 @@ export let _setPowerSaveingMode: Dispatch<SetStateAction<boolean>> = () => { }
 export let _appScale = 100
 export let _setAppScale: Dispatch<SetStateAction<number>> = () => { }
 
+const ele = {
+  notic: () => document.getElementById(style["Notic"])!,
+  colorPanal: () => document.getElementById(style["ColorControCenter"])!,
+  Effect: {
+    flash: () => document.getElementById(style["Flash"])!,
+  }
+}
+
+const ift = {
+  cuef: {
+    cur: () => document.getElementById(style["Cur"])!,
+    clickAni: () => document.getElementById(style["clickAnimation"])!,
+    traj: () => document.getElementById(style["Trajectory"])!,
+    cureff: () => document.getElementById(style["CursorEffects"])!,
+  }
+}
+
+const inalFt = {
+  cuef: false
+}
+
 export let _app: {
   disableColor: () => boolean;
   enableColor: () => boolean;
   toggleColor: () => boolean;
   setColor: (color: string) => Object;
   setColor2: (color: string) => Object;
+  informalFunction: {
+    CursorEffects: (mode: "TOG" | "SET", status?: boolean) => boolean;
+  };
+  throwNotic: (message: string, time?: number) => HTMLDivElement;
+  clearNotic: () => void;
+  Effects: {
+    FLASH: (color?: string) => HTMLDivElement | false;
+  };
 } = {
   disableColor: () => false,
   enableColor: () => false,
   toggleColor: () => false,
   setColor: () => ({ R: 0, G: 0, B: 0 }),
   setColor2: () => ({ R: 0, G: 0, B: 0 }),
+  informalFunction: {
+    CursorEffects: () => false,
+  },
+  throwNotic: () => document.createElement("div"),
+  clearNotic: () => false,
+  Effects: {
+    FLASH: () => false,
+  },
 }
 
 export let newInputCloseEvents: (() => void)[] = []
@@ -165,6 +201,7 @@ export const newInput = {
     void frame.clientHeight
     frame.classList.add(style["show"])
   },
+
   message: function <T>(
     msg: string,
     buttons?: {
@@ -508,6 +545,8 @@ const { Terminal, consoleFunction } = (() => {
     const [activeParamIndex, setActiveParamIndex] = useState<number>(-1);
     const [customCommand, setCustomCommand] = useState<setCustomCommandType>()
 
+    const [glabs, setGlabs] = useState<boolean>(false)
+
     const outputAreaRef = useRef<HTMLDivElement>(null);
 
     const afterLog = useCallback(async () => {
@@ -800,6 +839,11 @@ const { Terminal, consoleFunction } = (() => {
             }
           },
         },
+        {
+          name: "exit",
+          dsc: "Close terminal",
+          action() { (props.exitCommand ?? window.close)() },
+        },
       ]
       return _
     }, [log, props.exitCommand]);
@@ -862,7 +906,7 @@ const { Terminal, consoleFunction } = (() => {
         };
       }
       setCommandList(allCmds);
-    }, [customCommand, defaultCommandList, log]);
+    }, [customCommand, defaultCommandList, log, glabs]);
 
     function splitBySemicolon(input: string): string[] {
       const result: string[] = [];
@@ -1300,6 +1344,35 @@ type KiasoleType = {
   editLastLine: (msg: ReactNode) => void
   runCommand: (input: string) => void
   setCustomCommand: typeof consoleFunction.setCustomCommand
+  toggle: (open?: boolean) => boolean
+}
+
+
+
+export const toggleKiasole = (open?: boolean) => {
+  const Console = document.getElementById(style["Console"])!
+  if (open === undefined)
+    if (Console.classList.toggle(style["display"])) {
+      (Console.querySelector("input") as HTMLInputElement).focus();
+      (Kiasole.onStart ?? (() => { }))();
+      return true
+    } else {
+      (Console.querySelector("input") as HTMLInputElement).blur();
+      (Kiasole.onClose ?? (() => { }))();
+      return false
+    }
+  else {
+    if (open) {
+      Console.classList.add(style["display"]);
+      (Console.querySelector("input") as HTMLInputElement).focus();
+      (Kiasole.onStart ?? (() => { }))();
+    } else {
+      Console.classList.remove(style["display"]);
+      (Console.querySelector("input") as HTMLInputElement).blur();
+      (Kiasole.onClose ?? (() => { }))();
+    }
+    return open
+  }
 }
 
 export const Kiasole: KiasoleType = {
@@ -1311,18 +1384,7 @@ export const Kiasole: KiasoleType = {
   editLastLine: (msg) => consoleFunction.editLastLine(msg),
   runCommand: (input) => consoleFunction.runCommand(input),
   setCustomCommand: (cmd) => consoleFunction.setCustomCommand(cmd),
-}
-
-export const toggleKiasole = () => {
-  const Console = document.getElementById(style["Console"])!
-
-  if (Console.classList.toggle(style["display"])) {
-    (Console.querySelector("input") as HTMLInputElement).focus();
-    (Kiasole.onStart ?? (() => { }))();
-  } else {
-    (Console.querySelector("input") as HTMLInputElement).blur();
-    (Kiasole.onClose ?? (() => { }))();
-  }
+  toggle: toggleKiasole
 }
 
 function MyApp({ Component, pageProps }: AppProps) {
@@ -1334,21 +1396,12 @@ function MyApp({ Component, pageProps }: AppProps) {
   const [color2, setColor2] = useState<string>("#ffffff")
   const [powerSaveingMode, setPowerSaveingMode] = useState<boolean>(false)
   const [appScale, setAppScale] = useState<number>(100)
-  const [defCorLs, setDefCorLs] = useState<string[]>([])
-
-  const clrSetDeps = {
-    defCorLs,
-    setDefCorLs,
-  }
 
   const colorSetting = useCallback((
     prefix: string,
     className: string,
     setColor: Dispatch<SetStateAction<string>>,
     color: string,
-    {
-      defCorLs,
-    }: typeof clrSetDeps,
   ) => {
 
     const cssStr = {
@@ -1497,23 +1550,6 @@ function MyApp({ Component, pageProps }: AppProps) {
           kilo-style=""
           onChange={() => { }}
         />
-        <div className={style["ColorList"]}>
-          <div className={style["Default"]}>
-            {
-              defCorLs.map((e, i) =>
-                <button
-                  key={i}
-                  className={style["Color"]}
-                  onClick={() => setColor(e)}
-                  style={{
-                    backgroundColor: e
-                  }}
-                  hover-tips={`預設顔色 : ${e}`}
-                />
-              )
-            }
-          </div>
-        </div>
       </div>
     }
   }, [])
@@ -1523,7 +1559,6 @@ function MyApp({ Component, pageProps }: AppProps) {
     style["Pri"],
     setColor,
     color,
-    clrSetDeps,
   )
 
   const ColorSet2 = colorSetting(
@@ -1531,8 +1566,11 @@ function MyApp({ Component, pageProps }: AppProps) {
     style["Sec"],
     setColor2,
     color2,
-    clrSetDeps,
   )
+
+  const lastTapTimeRef = useRef<number>(0);
+
+  const DOUBLE_TAP_DELAY = 300;
 
   _setPowerSaveingMode = setPowerSaveingMode
   _setAppScale = setAppScale
@@ -1545,9 +1583,56 @@ function MyApp({ Component, pageProps }: AppProps) {
     _appScale = appScale
   }, [appScale])
 
+  /* dbTouch */
+  useEffect(() => {
+    const DOUBLE_TAP_DELAY = 300;
+    const FINGER_COUNT_STABILIZE_DELAY = 60;
+
+    const lastTapTimes = { 3: 0, 4: 0 };
+    let maxFingersInThisGesture = 0;
+    let gestureTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const currentFingers = e.touches.length;
+      if (currentFingers > maxFingersInThisGesture) {
+        maxFingersInThisGesture = currentFingers;
+      }
+
+      if (gestureTimer) clearTimeout(gestureTimer);
+
+      gestureTimer = setTimeout(() => {
+        const finalFingers = maxFingersInThisGesture;
+        const currentTime = Date.now();
+
+        if (finalFingers === 3 || finalFingers === 4) {
+          const lastTapTime = lastTapTimes[finalFingers];
+          const timeSinceLastTap = currentTime - lastTapTime;
+
+          if (timeSinceLastTap < DOUBLE_TAP_DELAY) {
+            if (finalFingers === 3) {
+              toggleKiasole();
+            } else {
+              setPowerSaveingMode(prev => !prev);
+            }
+            lastTapTimes[finalFingers] = 0;
+          } else {
+            lastTapTimes[finalFingers] = currentTime;
+          }
+        }
+
+        maxFingersInThisGesture = 0;
+      }, FINGER_COUNT_STABILIZE_DELAY);
+    };
+
+    document.addEventListener("touchstart", handleTouchStart);
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      if (gestureTimer) clearTimeout(gestureTimer);
+    };
+  }, [toggleKiasole]);
+
   /* Init Base Setting */
   useEffect(() => {
-
     const urlParams = new URL(window.location.toString()).searchParams
     /* SetThemeColor */
     const value = (document.querySelector(":root") as HTMLDivElement).style
@@ -1565,10 +1650,132 @@ function MyApp({ Component, pageProps }: AppProps) {
     }
   }, [])
 
+  /* Key Events */
+  useEffect(() => {
+    const okd = (e: KeyboardEvent) => {
+
+      if (e.code === "Backquote") {
+        if (inalFt.cuef) {
+          if (powerSaveingMode) return;
+          ift.cuef.cureff().classList.add(style["hide"]);
+        }
+
+        document.getElementById(style["Main"])?.classList.add(style["hideCursor"])
+      }
+
+      if (e.code === "Escape") {
+        newInput._close(true)
+      }
+    }
+
+    const oku = () => {
+      if (inalFt.cuef) ift.cuef.cureff().classList.remove(style["hide"]);
+
+      document.getElementById(style["Main"])?.classList.remove(style["hideCursor"])
+    }
+
+    document.addEventListener("keydown", okd)
+    document.addEventListener("keyup", oku)
+
+    return () => {
+      document.removeEventListener("keydown", okd)
+      document.removeEventListener("keyup", oku)
+    }
+  }, [powerSaveingMode])
+
+  /* CursorEffects */
+  useEffect(() => {
+    if (powerSaveingMode) return;
+    ift.cuef.cureff().classList.toggle(style["hide"], !inalFt.cuef)
+
+    const crtPoint = (x: number, y: number, ele: HTMLElement) => {
+      if (!inalFt.cuef) return;
+      const div = document.createElement("div")
+      div.style.top = y + "px"
+      div.style.left = x + "px"
+      div.appendChild(document.createElement("div"))
+      ele.appendChild(div)
+
+      console.log(`x:${x} , y:${y}`);
+
+      setTimeout(() => {
+        div.remove()
+      }, 10e3);
+    }
+
+    const touchMove = (e: TouchEvent) => {
+      if (!inalFt.cuef) return;
+      const points = e.changedTouches
+
+      for (let index = 0; index < points.length; index++) {
+        const p = points[index];
+        crtPoint(p.clientX, p.clientY, ift.cuef.traj())
+      }
+    }
+
+    const touchStart = (e: TouchEvent) => {
+      if (!inalFt.cuef) return;
+      const points = e.changedTouches
+
+      for (let index = 0; index < points.length; index++) {
+        const p = points[index];
+        crtPoint(p.clientX, p.clientY, ift.cuef.clickAni())
+      }
+    }
+
+    const touchEnd = () => {
+      if (!inalFt.cuef) return;
+      ift.cuef.cur().classList.add(style["hide"])
+    }
+
+    const mouseMove = (e: MouseEvent) => {
+      if (!inalFt.cuef) return;
+
+      console.log(`x:${e.clientX} , y:${e.clientY}`);
+
+      const cur = ift.cuef.cur().style
+
+      cur.top = e.clientY + "px"
+      cur.left = e.clientX + "px"
+
+      crtPoint(e.clientX, e.clientY, ift.cuef.traj())
+    }
+
+    const mouseDown = (e: MouseEvent) => {
+      if (!inalFt.cuef) return;
+      ift.cuef.cur().classList.add(style["down"])
+
+      crtPoint(e.clientX, e.clientY, ift.cuef.clickAni())
+    }
+
+    const mouseUp = (e: MouseEvent) => {
+      if (!inalFt.cuef) return;
+      ift.cuef.cur().classList.remove(style["down"])
+    }
+
+    document.addEventListener("touchstart", touchStart)
+    document.addEventListener("touchend", touchEnd)
+    document.addEventListener("touchmove", touchMove)
+
+    document.addEventListener("mousemove", mouseMove)
+    document.addEventListener("mousedown", mouseDown)
+    document.addEventListener("mouseup", mouseUp)
+
+    return () => {
+      document.removeEventListener("touchstart", touchStart)
+      document.removeEventListener("touchend", touchEnd)
+      document.removeEventListener("touchmove", touchMove)
+
+      document.removeEventListener("mousemove", mouseMove)
+      document.removeEventListener("mousedown", mouseDown)
+      document.removeEventListener("mouseup", mouseUp)
+    }
+  }, [powerSaveingMode])
+
   /* Console */
   useEffect(() => {
     const onkeydown = (e: KeyboardEvent) => {
-      if (e.metaKey && e.ctrlKey && (e.code === "KeyI")) {
+      if (e.ctrlKey && (e.altKey || e.metaKey) && (e.code === "KeyI")) {
         toggleKiasole()
       }
       if (e.metaKey && e.altKey && (e.code === "Backquote")) {
@@ -1581,6 +1788,14 @@ function MyApp({ Component, pageProps }: AppProps) {
       document.removeEventListener("keydown", onkeydown);
     };
   }, [Kiasole]);
+
+  useEffect(() => {
+    if (powerSaveingMode) return;
+    const effect = WebEffect.onBlur(style["blur"], document.getElementById(style["Cur"])!)
+    return () => {
+      effect.RemoveEvent()
+    }
+  }, [powerSaveingMode])
 
   _app = {
     disableColor: function () {
@@ -1603,18 +1818,115 @@ function MyApp({ Component, pageProps }: AppProps) {
       setColor2(color)
       return colormgr.hexToRgb(color)
     },
+    informalFunction: {
+      CursorEffects: function (mode: "TOG" | "SET", status?: boolean) {
+        if (powerSaveingMode) return false;
+        if (mode === "TOG") {
+          this.CursorEffects("SET", !inalFt.cuef)
+          return inalFt.cuef;
+        }
+
+        inalFt.cuef = status ?? false
+
+        console.log(inalFt.cuef);
+
+        return !ift.cuef.cureff().classList.toggle(style["hide"], !inalFt.cuef)
+      }
+    },
+    throwNotic: (message: string, time?: number) => {
+      const div = document.createElement("div")
+
+      div.innerHTML = message
+
+      div.style.zIndex = new Date().getTime().toString()
+
+      ele.notic().appendChild(div);
+
+      (
+        async () => {
+          await functions.timeSleep(time || 3e3)
+
+          div.classList.add(style["hide"])
+
+          await functions.timeSleep(3e3)
+
+          div.remove()
+        }
+      )()
+
+      return div
+    },
+    clearNotic: () => {
+      const list = ele.notic().children
+
+      for (let index = 0; index < list.length; index++) {
+        const e = list[index];
+
+        (async () => {
+          e.classList.add(style["hide"])
+          await functions.timeSleep(3e3)
+          e.remove()
+        })()
+
+      }
+    },
+    Effects: {
+      FLASH: (color?: string) => {
+        if (powerSaveingMode) return false;
+        {
+          const div = document.createElement("div")
+
+          if (color) {
+            div.style.backgroundColor = color
+          }
+
+          div.style.zIndex = new Date().getTime().toString()
+
+          ele.Effect.flash().appendChild(div);
+
+          (
+            async () => {
+
+              await functions.timeSleep(1e3)
+
+              div.remove()
+            }
+          )()
+
+          return div
+        }
+      }
+    }
   }
 
   return (
     <>
       <Components.SVGFilters />
 
-      <HeadSetting title='E621 App' />
+      <HeadSetting />
       <div
         style={{ zoom: appScale + "%" }}
         id={style["KIASE_APP"]}
         className={powerSaveingMode ? style["PowerSaveingMode"] : ""}
       >
+
+        <div id={style["CursorEffects"]}>
+          <div id={style["clickAnimation"]} >
+            <div />
+          </div>
+          <div id={style["Trajectory"]} >
+            <div />
+          </div>
+          <div id={style["Cur"]}>
+            <div className={style["circle"]}>
+              <div />
+            </div>
+            <div className={style["circle"]}>
+              <div />
+            </div>
+          </div>
+        </div>
+
 
         <div id={style["ColorControCenter"]} className={clrCtrlCntr ? "" : style["Disable"]}>
           <div className={style["DisableText"]}>
@@ -1624,6 +1936,15 @@ function MyApp({ Component, pageProps }: AppProps) {
             {ColorSet1.Element}
             {ColorSet2.Element}
           </div>
+        </div>
+
+
+        <div id={style["Effect"]}>
+          <div id={style["Flash"]}>
+          </div>
+        </div>
+
+        <div id={style["Notic"]}>
         </div>
 
         <div id={style["InputOverlay"]}>
