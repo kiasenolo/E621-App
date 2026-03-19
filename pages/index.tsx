@@ -482,7 +482,7 @@ const langList = {
     /* .wallpaper */
     "setting.Appearance.wallpaper": "桌布",
     "setting.Appearance.wallpaper.set": "設成桌布",
-    "setting.Appearance.wallpaper.apply": "討厭",
+    "setting.Appearance.wallpaper.apply": "套用",
     "setting.Appearance.wallpaper.source": "桌布來源",
     /* .wallpaper */
 
