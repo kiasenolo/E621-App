@@ -1,3 +1,4 @@
+import { fs } from "./module/fs"
 import { toFullscreen, exitFullscreen, toggleFullscreen } from "./module/fullscreen"
 import htmlElement from "./module/htmlElement"
 import makeZip from "./module/makeZip"
@@ -98,12 +99,50 @@ export default {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
     }).join(''))
   },
-  afkClockTimer: function () {
+  dateFormat: (_date: number, format: string) => {
+    /* 
+     * :hh: - 12小時制的小時
+     * :HH: - 24小時制的小時
+     * :mm: - 分鐘
+     * :ss: - 秒
+     * 
+     * -YY- - 四位數的年份
+     * -yy- - 兩位數的年份
+     * -MM- - 月
+     * -mm- - 數字的月
+     * -dd- - 日
+     */
+    const date = new Date(_date);
 
+    const pad = (num: number) => {
+      return num.toString().padStart(2, "0");
+    };
+
+    const str = (num: number) => {
+      return num.toString()
+    };
+
+    const rep01 = format
+      .replaceAll(":HH:", pad(date.getHours()))
+      .replaceAll(":mm:", pad(date.getMinutes()))
+      .replaceAll(":ss:", pad(date.getSeconds()))
+      .replaceAll("-YY-", str(date.getFullYear()))
+      .replaceAll("-yy-", str(date.getFullYear()).slice(-2))
+      .replaceAll("-MM-", [
+        "January", "February", "March", "April", "May", "June", "July",
+        "August", "September", "October", "November", "December"
+      ][date.getMonth()])
+      .replaceAll("-mm-", pad(date.getMonth() + 1))
+      .replaceAll("-dd-", pad(date.getDate()))
+
+    return rep01
+  },
+  afkClockTimer: function () {
     const [time, setTime] = useState<string>("--:--")
     const [timeS, setTimeS] = useState<string>("--:--:--")
     const [date, setDate] = useState<string>("- - -")
     const [week, setWeek] = useState<string>("-")
+    const [timeCode, setTimeCode] = useState<number>(0)
 
     const [batteryLevel, setBatteryLevel] = useState<number>(Infinity)
     const [batteryCharging, setBatteryCharging] = useState<boolean>(true)
@@ -113,6 +152,8 @@ export default {
 
       const intervalId = setInterval(async () => {
         const time = new Date()
+
+        setTimeCode(time.getTime())
 
         setTime(
           padNumber(time.getHours())
@@ -158,7 +199,7 @@ export default {
           setBatteryCharging(false)
           setBatteryLevel(-1)
         }
-      }, 1000)
+      }, 100)
 
       return () => clearInterval(intervalId)
     }, [])
@@ -170,6 +211,8 @@ export default {
       week,
       batteryLevel,
       batteryCharging,
+      timeCode,
+      getByFormat: (format: string) => this.dateFormat(timeCode, format)
     }
   },
   audioContext: {
@@ -225,4 +268,5 @@ export default {
     mulitStartWith: function (fixs: string[], target: string) { return this.mulit_with("start", fixs, target) },
     mulitEndWith: function (fixs: string[], target: string) { return this.mulit_with("end", fixs, target) },
   },
+  fs
 }

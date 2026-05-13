@@ -7,12 +7,9 @@
   transform: scale(0.7);
   opacity: 0;
 
-  min-width: 600px;
-  min-height: 400px;
   background-color: Color(.1, .7);
   backdrop-filter: $blur-effect;
   border-radius: 0px;
-  overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr;
   filter: blur(20px);
@@ -36,6 +33,7 @@
     background-color: Color(.2, .4);
     @include GridFrame();
     user-select: none;
+    overflow: hidden;
 
     .text {
       padding: 5px;
@@ -88,6 +86,11 @@
         &:hover {
           filter: saturate(1.2);
 
+          *,
+          & {
+            transition: none;
+          }
+
           >.bg {
             opacity: .3;
           }
@@ -133,6 +136,7 @@
   >.content {
     @include GridFrame();
     overflow: hidden;
+    z-index: 1;
 
     &.action {
       pointer-events: none;
@@ -161,39 +165,42 @@
   >.handle {
     position: absolute;
     background: transparent;
-    z-index: 1000;
     user-select: none;
+    z-index: 1000;
+
+    $size: 8px;
+    $ofs: 1-($size);
 
     &.n,
     &.s {
       left: 4px;
       right: 4px;
-      height: 6px;
+      height: $size;
       cursor: ns-resize;
     }
 
     &.n {
-      top: -3px;
+      top: $ofs;
     }
 
     &.s {
-      bottom: -3px;
+      bottom: $ofs;
     }
 
     &.e,
     &.w {
       top: 4px;
       bottom: 4px;
-      width: 6px;
+      width: $size;
       cursor: ew-resize;
     }
 
     &.e {
-      right: -3px;
+      right: $ofs;
     }
 
     &.w {
-      left: -3px;
+      left: $ofs;
     }
 
     &.ne,
@@ -206,26 +213,26 @@
     }
 
     &.ne {
-      top: -3px;
-      right: -3px;
+      top: $ofs;
+      right: $ofs;
       cursor: nesw-resize;
     }
 
     &.nw {
-      top: -3px;
-      left: -3px;
+      top: $ofs;
+      left: $ofs;
       cursor: nwse-resize;
     }
 
     &.se {
-      bottom: -3px;
-      right: -3px;
+      bottom: $ofs;
+      right: $ofs;
       cursor: nwse-resize;
     }
 
     &.sw {
-      bottom: -3px;
-      left: -3px;
+      bottom: $ofs;
+      left: $ofs;
       cursor: nesw-resize;
     }
   }
@@ -286,9 +293,8 @@
   }
 
   &.minimize {
-    transform: scale(.1) translate(-50%, -50%) !important;
+    transform: scale(.1) !important;
     top: 125% !important;
-    // left: 0% ;
     transition: .5s cubic-bezier(.48, .1, 0, 1);
 
     >* {
@@ -297,7 +303,6 @@
   }
 
   &.nonTransparens {
-    // & {
     background-color: Color(.1);
     backdrop-filter: none;
 

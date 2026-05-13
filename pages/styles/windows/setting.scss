@@ -1,19 +1,6 @@
 @use "/styles/value" as *;
 
 .Setting {
-  [kilo-style] {
-    &:is(input) {
-      &[type=range] {
-        border-radius: 0px;
-        height: 6px;
-
-        &::-webkit-slider-thumb {
-          border-radius: 0px;
-        }
-      }
-    }
-  }
-
   .home {
     transition: .8s cubic-bezier(0, 1, 0, 1);
     display: flex;
@@ -192,10 +179,10 @@
 
       .page {
         background-color: Color(.08, .5);
-
         padding: 10px;
         overflow: hidden;
         display: grid;
+        font-size: 20px;
 
         >div {
           overflow: auto;
@@ -280,6 +267,10 @@
             &:focus {
               background-color: Color(.15);
             }
+
+            &:disabled {
+              opacity: .5;
+            }
           }
         }
 
@@ -295,7 +286,7 @@
         }
 
         [small-txt] {
-          font-size: 15px;
+          font-size: 18px;
         }
 
         [mid-txt] {
@@ -336,6 +327,15 @@
           display: flex;
           flex-wrap: wrap;
           gap: 10px;
+
+          &.disable {
+            opacity: .5;
+
+            *,
+            & {
+              pointer-events: none !important;
+            }
+          }
         }
 
         .positionSet {
@@ -526,6 +526,9 @@
 
               h1 {
                 font-size: 40px;
+                border-bottom: 2px solid Color();
+                padding-bottom: 5px;
+                margin-bottom: 20px;
               }
 
               h2 {

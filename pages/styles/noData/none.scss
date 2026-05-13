@@ -10,23 +10,28 @@
 
   .Text {
     display: flex;
+    flex-direction: column;
+    justify-content: center;
 
-    @include FlexCenter();
-    gap: 10px;
+    .Line {
+      display: flex;
+      @include FlexCenter();
+      gap: 10px;
 
-    .case {
-      font-family: hack-nerd-font;
-      white-space: pre;
-      font-size: 50px;
+      .case {
+        font-family: hack-nerd-font;
+        white-space: pre;
+        font-size: 50px;
 
-      animation-name: NONEFlash;
-      animation-timing-function: steps(1);
-      animation-duration: 1s;
-      animation-fill-mode: forwards;
-    }
+        animation-name: NONEFlash;
+        animation-timing-function: steps(1);
+        animation-duration: 1s;
+        animation-fill-mode: forwards;
+      }
 
-    @starting-style {
-      opacity: 0;
+      @starting-style {
+        opacity: 0;
+      }
     }
   }
 }

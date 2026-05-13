@@ -1,0 +1,147 @@
+@use "/styles/value" as *;
+
+.PostViewer {
+  overflow: hidden;
+  @include GridFrame();
+
+  .Image {
+    overflow: hidden;
+    @include GridFrame();
+
+    .Viewer {
+      overflow: hidden;
+      @include GridFrame();
+
+      .main {
+        z-index: 2;
+      }
+
+      .prev {
+        z-index: 1;
+      }
+
+      .main,
+      .prev {
+        overflow: hidden;
+
+        img {
+          object-fit: contain;
+          width: 100%;
+          height: 100%;
+        }
+      }
+    }
+  }
+
+  .Video {
+    overflow: hidden;
+    @include GridFrame();
+
+    .Viewer {
+      z-index: 1;
+      overflow: hidden;
+      @include GridFrame();
+
+      .main {
+        overflow: hidden;
+
+        video {
+          object-fit: contain;
+          width: 100%;
+          height: 100%;
+        }
+      }
+    }
+
+    .Contro {
+      overflow: hidden;
+      z-index: 2;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: stretch;
+
+      button {
+        outline: none;
+        border: none;
+        background-color: Color(.2);
+        aspect-ratio: 1.25/1;
+        height: 35px;
+        @include FlexCenter2();
+        color: Color() !important;
+
+        svg {
+          fill: Color();
+        }
+
+        &:hover,
+        &:active {
+          background-color: Color();
+          color: #000 !important;
+
+          &,
+          * {
+            transition: all 0s, scale DefaultTransition();
+          }
+
+          svg {
+            fill: #000;
+          }
+        }
+
+        &:active {
+
+          &,
+          * {
+            transition: none;
+          }
+
+          scale: .9;
+          filter: brightness(.6);
+        }
+      }
+
+      .Frame {
+        pointer-events: all;
+        background-color: Color(.02, .8);
+        backdrop-filter: $blur-effect-5;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transform: translateY(100%);
+        transition: cubic-bezier(.77, .1, .23, .76) .3s;
+        opacity: 0;
+
+        .play {
+          flex-grow: 1;
+
+          input {
+            flex-grow: 1;
+            min-width: 80px;
+          }
+        }
+
+        .volume {
+          input {
+            width: 80px;
+          }
+        }
+
+        .play,
+        .volume {
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+
+
+        &.displayCtrl {
+          transform: none;
+          transition: cubic-bezier(0, .5, 0, 1) .3s;
+          opacity: 1;
+        }
+      }
+    }
+  }
+}

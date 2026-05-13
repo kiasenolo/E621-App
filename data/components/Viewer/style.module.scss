@@ -18,8 +18,11 @@
 
     .Bar {
       background-color: Color(.1, .8);
-      backdrop-filter: $blur-effect;
+      backdrop-filter: $blur-effect-5;
       @include GridFrame();
+      transform: translateY(-100%);
+      transition: cubic-bezier(.77, .1, .23, .76) .3s;
+      opacity: 0;
 
       .Contro {
         z-index: 2;
@@ -65,6 +68,14 @@
         span {
           color: Color();
         }
+      }
+    }
+
+    &.displayCtrl {
+      .Bar {
+        transform: none;
+        transition: cubic-bezier(0, .5, 0, 1) .3s;
+        opacity: 1;
       }
     }
   }

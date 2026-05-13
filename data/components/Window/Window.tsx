@@ -18,6 +18,10 @@ export type WindowProps = {
   onClose: (id: string) => void;
   rect: WindowRect;
   isClosing?: boolean;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
   actions?: {
     canMinimize?: boolean;
     canMaximize?: boolean;
@@ -36,6 +40,10 @@ export default function Window({
   rect,
   nonTransparens,
   isClosing: isClosingProp = false,
+  minWidth = 600,
+  minHeight = 400,
+  maxWidth,
+  maxHeight,
 }: WindowProps) {
   const {
     canMinimize = true,
@@ -63,6 +71,9 @@ export default function Window({
   const [altIsPress, setAltIsPress] = useState(false);
   const [isSnapped, setIsSnapped] = useState(false);
 
+  const actionStatusRef = useRef(false);
+  const altIsPressRef = useRef(false);
+
   const lastSyncedRect = useRef(rect);
 
   const stateRef = useRef({
@@ -72,9 +83,15 @@ export default function Window({
     isSnapped,
   });
 
+  const constraintsRef = useRef({ minWidth, minHeight, maxWidth, maxHeight });
+
   useEffect(() => {
     stateRef.current = { isMaximized, isMinimized, canResize, isSnapped };
   }, [isMaximized, isMinimized, canResize, isSnapped]);
+
+  useEffect(() => {
+    constraintsRef.current = { minWidth, minHeight, maxWidth, maxHeight };
+  }, [minWidth, minHeight, maxWidth, maxHeight]);
 
   useEffect(() => {
     if (isClosingProp) setIsClosing(true);
@@ -112,14 +129,15 @@ export default function Window({
 
   useEffect(() => {
     const unsubscribe = manager.subscribe((windows) => {
-      const self = windows.find((w) => w.id === windowId);
+      const self: any = (manager as any)._lookupWindow?.(windowId)
+        ?? windows.find((w) => w.id === windowId);
       if (self) {
         setZIndex(self.zIndex);
         setFocused(self.focused);
         setIsClosing(self.isClosing ?? false);
         setIsMinimized(self.isMinimized);
         setIsMaximized(self.isMaximized);
-        setIsSnapped((self as any).isSnapped ?? false);
+        setIsSnapped(self.isSnapped ?? false);
       }
     });
     return () => unsubscribe();
@@ -166,8 +184,6 @@ export default function Window({
     let latestRect: WindowRect | undefined;
 
     const snapDist = 15;
-    const minW = 600;
-    const minH = 400;
 
     const getSnapped = (val: number, limit: number, skipSnap = false) => {
       if (skipSnap || limit <= 0) return val;
@@ -180,7 +196,10 @@ export default function Window({
       if (!win || !action) return;
 
       e.preventDefault();
-      setActionStatus(true);
+      if (!actionStatusRef.current) {
+        actionStatusRef.current = true;
+        setActionStatus(true);
+      }
 
       const localPos = manager.globalToLocal(e.clientX, e.clientY);
       const localX = localPos.left;
@@ -280,6 +299,9 @@ export default function Window({
         }
 
         if (newTop < 0) newTop = 0;
+        const VISIBLE_MIN = 100;
+        newLeft = Math.max(VISIBLE_MIN - currentW, Math.min(newLeft, cw - VISIBLE_MIN));
+        newTop = Math.max(VISIBLE_MIN - currentH, Math.min(newTop, ch - VISIBLE_MIN));
 
         const pctLeft = (newLeft / cw) * 100;
         const pctTop = (newTop / ch) * 100;
@@ -319,11 +341,21 @@ export default function Window({
 
       if (currentMaximized) return;
 
+      const {
+        minWidth: minW,
+        minHeight: minH,
+        maxWidth: maxW,
+        maxHeight: maxH,
+      } = constraintsRef.current;
+
+      const clampW = (w: number) => Math.max(minW, maxW !== undefined ? Math.min(w, maxW) : w);
+      const clampH = (h: number) => Math.max(minH, maxH !== undefined ? Math.min(h, maxH) : h);
+
       if (action === "c") {
         const rawW = startWidth + dx * 2;
         const rawH = startHeight + dy * 2;
-        const newW = Math.max(minW, Math.abs(rawW));
-        const newH = Math.max(minH, Math.abs(rawH));
+        const newW = clampW(Math.abs(rawW));
+        const newH = clampH(Math.abs(rawH));
         const centerX = startLeft + startWidth / 2;
         const centerY = startTop + startHeight / 2;
 
@@ -412,8 +444,8 @@ export default function Window({
         }
       }
 
-      const effectiveW = Math.max(rawWidth, minW);
-      const effectiveH = Math.max(rawHeight, minH);
+      const effectiveW = clampW(rawWidth);
+      const effectiveH = clampH(rawHeight);
 
       let finalLeft = rawLeft;
       let finalTop = rawTop;
@@ -433,18 +465,8 @@ export default function Window({
 
       win.style.width = `${pctWidth}%`;
       win.style.height = `${pctHeight}%`;
-
-      if (action.includes("w") || action.includes("move")) {
-        win.style.left = `${pctLeft}%`;
-      } else {
-        win.style.left = `${pctLeft}%`;
-      }
-
-      if (action.includes("n")) {
-        win.style.top = `${pctTop}%`;
-      } else {
-        win.style.top = `${pctTop}%`;
-      }
+      win.style.left = `${pctLeft}%`;
+      win.style.top = `${pctTop}%`;
 
       latestRect = { left: pctLeft, top: pctTop, width: pctWidth, height: pctHeight };
 
@@ -479,6 +501,7 @@ export default function Window({
 
       action = null;
       hasMoved = false;
+      actionStatusRef.current = false;
       setActionStatus(false);
 
       if (capturedElement) {
@@ -559,6 +582,7 @@ export default function Window({
       } else if (e.altKey && e.button === 0) {
         action = "alt-move";
         e.preventDefault();
+        e.stopPropagation();
         if (!currentMaximized) calcDragOffset();
       } else if (target === handle || handle.contains(target)) {
         if (e.button === 0 || e.pointerType === "touch") {
@@ -586,9 +610,24 @@ export default function Window({
   }, [windowId, manager]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => setAltIsPress(e.altKey);
-    const handleKeyUp = (e: KeyboardEvent) => setAltIsPress(e.altKey);
-    const altCancel = () => setAltIsPress(false);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey !== altIsPressRef.current) {
+        altIsPressRef.current = e.altKey;
+        setAltIsPress(e.altKey);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.altKey !== altIsPressRef.current) {
+        altIsPressRef.current = e.altKey;
+        setAltIsPress(e.altKey);
+      }
+    };
+    const altCancel = () => {
+      if (altIsPressRef.current) {
+        altIsPressRef.current = false;
+        setAltIsPress(false);
+      }
+    };
 
     document.addEventListener("blur", altCancel);
     document.addEventListener("focus", altCancel);
@@ -663,7 +702,7 @@ export default function Window({
         </span>
       </div>
 
-      <div className={`${style["content"]} ${actionStatus ? style["action"] : ""} `}>{children}</div>
+      <div className={`${style["content"]} ${actionStatus ? style["action"] : ""} `}>{!isClosing && children}</div>
 
       {!isMinimized && !isMaximized && (
         <>

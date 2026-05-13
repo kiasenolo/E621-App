@@ -2,7 +2,6 @@
 
 .postSearch,
 .pool {
-
   .BackgroundMask,
   .PaginationControls,
   .TagEditor,
@@ -20,8 +19,7 @@
     display: grid;
 
     .InnerFrame {
-      backdrop-filter: $blur-effect;
-      background-color: Color(.2, .4);
+      background-color: Color(.1, .9);
     }
   }
 
@@ -189,6 +187,7 @@
     z-index: 1;
     @include GridFrame();
     overflow: hidden;
+    padding: 0 25px;
 
     .InnerFrame {
       overflow: auto;

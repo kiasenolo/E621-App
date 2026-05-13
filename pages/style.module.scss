@@ -1,6 +1,241 @@
 @use "/styles/value" as *;
 @use "./styles/styles";
 
+@mixin KIASE_STYLE() {
+  button[kiase-style] {
+    outline: none;
+    border: none;
+    background-color: Color(.15);
+    gap: 5px;
+    font-size: 15px;
+    padding: 5px 20px;
+
+    *,
+    & {
+      color: Color();
+    }
+
+    &.actv {
+      background-color: Color(.5);
+      text-shadow: 0 0 5px Color();
+
+      &:hover {
+        text-shadow: 0 0 5px #0008;
+      }
+
+      &:active {
+        background-color: Color(.4);
+        text-shadow: 0 0 5px Color();
+      }
+    }
+
+    &:disabled {
+
+      &,
+      &:hover,
+      &:active {
+        pointer-events: none !important;
+        background-color: Color(.6, .1);
+
+        *,
+        & {
+          color: Color(1, .5);
+        }
+      }
+    }
+
+    &:hover {
+      transition-duration: 0s;
+      background-color: Color();
+
+      *,
+      & {
+        color: #000;
+      }
+    }
+
+    &:active {
+      transition-duration: .3s;
+      background-color: Color(.5);
+
+      *,
+      & {
+        color: Color();
+      }
+
+      >* {
+        transition-duration: 0s;
+        opacity: .5;
+      }
+    }
+  }
+}
+
+#APP {
+  @include FullDiv();
+  @include GridFrame();
+  overflow: hidden;
+
+  [kilo-style] {
+    &:is(input) {
+      &[type=range] {
+        border-radius: 0px;
+        height: 6px;
+        min-width: none;
+
+        &::-webkit-slider-thumb {
+          border-radius: 0px;
+        }
+      }
+    }
+  }
+
+  .Menu {
+    z-index: 100;
+    pointer-events: none;
+    position: absolute;
+
+    .Buttons {
+      pointer-events: all;
+      transition: all DefaultTransition(),
+        transform 0s,
+        top 0s,
+        left 0s;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+      overflow: hidden;
+      @include Freedom();
+      top: 0;
+      left: 50%;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: $blur-effect-4;
+      background-color: Color(.02, .5);
+
+      @include KIASE_STYLE();
+
+      button {
+        text-align: left;
+
+        *:not(:hover, :active),
+        &:not(:hover, :active) {
+          background: none !important;
+        }
+
+        &:disabled {
+          opacity: .5;
+        }
+      }
+
+      & {
+        &.tl {
+          transform: translate(0%, 0%);
+
+        }
+
+        &.tc {
+          transform: translate(-50%, 0%);
+
+        }
+
+        &.tr {
+          transform: translate(-100%, 0%);
+
+        }
+
+        &.cl {
+          transform: translate(0%, -50%);
+
+        }
+
+        &.cc {
+          transform: translate(-50%, -50%);
+
+        }
+
+        &.cr {
+          transform: translate(-100%, -50%);
+
+        }
+
+        &.bl {
+          transform: translate(0%, -100%);
+
+        }
+
+        &.bc {
+          transform: translate(-50%, -100%);
+
+        }
+
+        &.br {
+          transform: translate(-100%, -100%);
+
+        }
+      }
+
+    }
+
+    &.hide {
+      pointer-events: none;
+
+      .Buttons {
+        opacity: 0;
+
+        &.tl,
+        &.tc,
+        &.tr {
+          clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
+
+        }
+
+        &.cl,
+        &.cc,
+        &.cr {
+          clip-path: polygon(0 50%, 100% 50%, 100% 50%, 50%);
+        }
+
+        &.bl,
+        &.bc,
+        &.br {
+          clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+        }
+      }
+    }
+  }
+
+  .winBackground {
+    background-color: Color(.02);
+  }
+}
+
+.electron-drag {
+  -webkit-app-region: drag;
+}
+
+#Resolution {
+  z-index: 500;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 5%;
+  transition: none;
+  opacity: 1;
+
+  div {
+    font-family: hack-nerd-font;
+    background-color: Color(.08, .5);
+    padding: 5px 80px;
+    font-size: 20px;
+    color: Color();
+  }
+
+  &.hide {
+    opacity: 0;
+    transition: 1s ease-out .5s;
+  }
+}
+
 #Frame {
   ::-webkit-scrollbar {
     width: 0;
@@ -17,7 +252,6 @@
     color: Color(1, .5);
   }
 
-  @include FullDiv();
   @include GridFrame();
   overflow: hidden;
 
@@ -27,10 +261,59 @@
   }
 
   #Desktop {
-    $dt: cubic-bezier(0, 1, 0, 1) 1s;
+
+    & {
+      &.NONE_TRANSITION {
+        * {
+          transition: none !important;
+        }
+      }
+
+      &.NONE_FILTER {
+        * {
+          filter: none !important;
+        }
+      }
+
+      &.NONE_BACKDROP_FILTER {
+        * {
+          backdrop-filter: none !important;
+        }
+      }
+    }
+
+    $dt: cubic-bezier(.57, .46, 0, 1) .5s;
     z-index: 1;
     @include GridFrame();
     overflow: hidden;
+
+    .Importing {
+      z-index: 4;
+      background-color: Color(.02, .6);
+      backdrop-filter: $blur-effect-5;
+      @include GridFrame();
+      transition: ease-out .5s;
+
+      .dark {
+        z-index: 1;
+        opacity: .5;
+        background: radial-gradient(circle, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.77) 100%);
+        transition: ease-out .5s;
+
+        @starting-style {
+          opacity: 0;
+        }
+      }
+
+      .Fetching {
+        z-index: 2;
+      }
+
+      @starting-style {
+        backdrop-filter: none;
+        background-color: #0000;
+      }
+    }
 
     .workSpaceMgr {
       z-index: 3;
@@ -110,9 +393,7 @@
           }
 
           .top {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            align-items: center;
+            display: flex;
 
             * {
               font-size: 15px;
@@ -128,6 +409,8 @@
               border: none;
               outline: none;
               padding: 5px 10px;
+              flex-grow: 1;
+              width: auto;
 
               &:hover,
               &:focus {
@@ -189,16 +472,18 @@
         align-items: flex-end;
 
         input {
+          transition: $dt;
+          pointer-events: all;
           font-size: 40px;
           opacity: 0;
           color: Color();
-          pointer-events: all;
           text-align: center;
           background: none;
           border: none;
           outline: none;
           width: 100%;
           padding: 10px;
+          transition: DefaultTransition();
 
           &::placeholder {
             opacity: .5;
@@ -206,7 +491,6 @@
 
           &:hover,
           &:focus {
-            transition: none;
             background-color: Color(.5, .3);
           }
         }
@@ -230,73 +514,7 @@
       }
 
       & {
-        button[kiase-style] {
-          outline: none;
-          border: none;
-          background-color: Color(.15);
-          gap: 5px;
-          font-size: 15px;
-          padding: 5px 20px;
-
-          *,
-          & {
-            color: Color();
-          }
-
-          &.actv {
-            background-color: Color(.5);
-            text-shadow: 0 0 5px Color();
-
-            &:hover {
-              text-shadow: 0 0 5px #0008;
-            }
-
-            &:active {
-              background-color: Color(.4);
-              text-shadow: 0 0 5px Color();
-            }
-          }
-
-          &:disabled {
-
-            &,
-            &:hover,
-            &:active {
-              pointer-events: none !important;
-              background-color: Color(.6, .1);
-
-              *,
-              & {
-                color: Color(1, .5);
-              }
-            }
-          }
-
-          &:hover {
-            transition-duration: 0s;
-            background-color: Color();
-
-            *,
-            & {
-              color: #000;
-            }
-          }
-
-          &:active {
-            transition-duration: .3s;
-            background-color: Color(.5);
-
-            *,
-            & {
-              color: Color();
-            }
-
-            >* {
-              transition-duration: 0s;
-              opacity: .5;
-            }
-          }
-        }
+        @include KIASE_STYLE();
       }
 
       .wsEditor {
@@ -304,6 +522,8 @@
         @include GridFrame();
         pointer-events: none;
         opacity: 0;
+        transition: $dt;
+        transition-duration: .3s;
 
         .backdrop {
           z-index: 1;
@@ -320,117 +540,6 @@
           padding: 40px;
           font-size: 60px;
           text-shadow: 0 0 30px #000;
-        }
-      }
-
-      .Menu {
-        z-index: 100;
-        pointer-events: none;
-        position: absolute;
-
-        .Buttons {
-          pointer-events: all;
-          transition: all DefaultTransition(),
-            transform 0s,
-            top 0s,
-            left 0s;
-          clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
-          overflow: hidden;
-          @include Freedom();
-          top: 0;
-          left: 50%;
-          display: flex;
-          flex-direction: column;
-          backdrop-filter: $blur-effect-4;
-          background-color: Color(.02, .5);
-
-          button {
-            text-align: left;
-
-            *:not(:hover, :active),
-            &:not(:hover, :active) {
-              background: none !important;
-            }
-
-            &:disabled {
-              opacity: .5;
-            }
-          }
-
-          & {
-            &.tl {
-              transform: translate(0%, 0%);
-
-            }
-
-            &.tc {
-              transform: translate(-50%, 0%);
-
-            }
-
-            &.tr {
-              transform: translate(-100%, 0%);
-
-            }
-
-            &.cl {
-              transform: translate(0%, -50%);
-
-            }
-
-            &.cc {
-              transform: translate(-50%, -50%);
-
-            }
-
-            &.cr {
-              transform: translate(-100%, -50%);
-
-            }
-
-            &.bl {
-              transform: translate(0%, -100%);
-
-            }
-
-            &.bc {
-              transform: translate(-50%, -100%);
-
-            }
-
-            &.br {
-              transform: translate(-100%, -100%);
-
-            }
-          }
-
-        }
-
-        &.hide {
-          pointer-events: none;
-
-          .Buttons {
-            opacity: 0;
-
-            &.tl,
-            &.tc,
-            &.tr {
-              clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
-
-            }
-
-            &.cl,
-            &.cc,
-            &.cr {
-              clip-path: polygon(0 50%, 100% 50%, 100% 50%, 50%);
-            }
-
-            &.bl,
-            &.bc,
-            &.br {
-              clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
-            }
-          }
         }
       }
 
@@ -657,6 +766,7 @@
             gap: 10px;
             padding: 100px;
             filter: blur(30px);
+            transition: 0s .5s;
 
             >div {
               transform: translateX(200px) scale(.95);
@@ -823,6 +933,8 @@
 
             .Buttons {
               filter: blur(0);
+              transition: DefaultTransition();
+              transition-duration: .6s;
 
               >div {
                 transition: DefaultTransition();
@@ -906,7 +1018,7 @@
     }
 
     &.workSpaceEditor {
-      $dt: DefaultTransition();
+      $dt: cubic-bezier(.27, .25, 0, 1) .7s;
 
       .workSpaceMgr {
         .menu {
@@ -926,14 +1038,22 @@
         .name {
           input {
             translate: 0 -150%;
-            opacity: 1;
           }
         }
 
         .note {
           input {
             translate: 0 130%;
-            opacity: 1;
+          }
+        }
+
+        input {
+          opacity: 1;
+          transition: $dt, background-color DefaultTransition();
+
+          &:hover,
+          &:focus {
+            transition: $dt, background-color 0s;
           }
         }
       }
@@ -941,6 +1061,7 @@
       .mainArea {
         .wsEditor {
           opacity: 1;
+          transition: $dt;
         }
 
         * {
@@ -976,7 +1097,7 @@
       flex-direction: column-reverse;
       align-items: flex-start;
       justify-content: flex-start;
-    overflow: hidden;
+      overflow: hidden;
 
 
       >div {
@@ -1328,6 +1449,8 @@
     .text {
       display: flex;
 
+      @include KIASE_STYLE();
+
       button {
         &:first-child {
           padding-left: 35px !important;
@@ -1336,12 +1459,24 @@
         transform: skewX(-10deg) translateX(-16px);
         background-color: Color(.1, .3) !important;
 
-        &:hover,
-        &:active {
+        &:hover {
+
+          *,
+          & {
+            transition: none;
+          }
+
           background-color: Color() !important;
         }
 
+        &.activ,
         &:active {
+
+          *,
+          & {
+            color: Color() !important;
+          }
+
           background-color: Color(.5) !important;
         }
 

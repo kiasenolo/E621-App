@@ -2,12 +2,11 @@ import '@/styles/globals.scss'
 import type { AppProps } from 'next/app'
 import HoverTips from "@/data/components/HoverTips"
 import { Dispatch, ReactNode, RefObject, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import colormgr from '@/data/module/functions/color'
+import colormgr from '@/data/module/color'
 import functions from '@/data/module/functions'
 import HeadSetting from '@/data/components/HeadSetting'
 import style from './_app.module.scss'
 import consoleStyle from './_app.styles/console.module.scss'
-import WebEffect from '@/data/module/WebEffect'
 
 export let _powerSaveingMode = true
 export let _setPowerSaveingMode: Dispatch<SetStateAction<boolean>> = () => { }
@@ -17,23 +16,6 @@ export let _setAppScale: Dispatch<SetStateAction<number>> = () => { }
 
 const ele = {
   notic: () => document.getElementById(style["Notic"])!,
-  colorPanal: () => document.getElementById(style["ColorControCenter"])!,
-  Effect: {
-    flash: () => document.getElementById(style["Flash"])!,
-  }
-}
-
-const ift = {
-  cuef: {
-    cur: () => document.getElementById(style["Cur"])!,
-    clickAni: () => document.getElementById(style["clickAnimation"])!,
-    traj: () => document.getElementById(style["Trajectory"])!,
-    cureff: () => document.getElementById(style["CursorEffects"])!,
-  }
-}
-
-const inalFt = {
-  cuef: false
 }
 
 export let _app: {
@@ -43,14 +25,11 @@ export let _app: {
   hideColorPanel: (sta?: boolean) => boolean;
   setColor: (color: string) => Object;
   setColor2: (color: string) => Object;
-  informalFunction: {
-    CursorEffects: (mode: "TOG" | "SET", status?: boolean) => boolean;
-  };
+  color: string;
+  color2: string;
   throwNotic: (message: string, time?: number) => HTMLDivElement;
+  throwNewNotic: (message: string, time?: number) => HTMLDivElement;
   clearNotic: () => void;
-  Effects: {
-    FLASH: (color?: string) => HTMLDivElement | false;
-  };
 } = {
   disableColor: () => false,
   enableColor: () => false,
@@ -58,14 +37,11 @@ export let _app: {
   hideColorPanel: () => false,
   setColor: () => ({ R: 0, G: 0, B: 0 }),
   setColor2: () => ({ R: 0, G: 0, B: 0 }),
-  informalFunction: {
-    CursorEffects: () => false,
-  },
+  color: "#000",
+  color2: "#000",
   throwNotic: () => document.createElement("div"),
+  throwNewNotic: () => document.createElement("div"),
   clearNotic: () => false,
-  Effects: {
-    FLASH: () => false,
-  },
 }
 
 export let newInputCloseEvents: (() => void)[] = []
@@ -1653,128 +1629,6 @@ function MyApp({ Component, pageProps }: AppProps) {
     }
   }, [])
 
-  /* Key Events */
-  useEffect(() => {
-    const okd = (e: KeyboardEvent) => {
-
-      if (e.code === "Backquote") {
-        if (inalFt.cuef) {
-          if (powerSaveingMode) return;
-          ift.cuef.cureff().classList.add(style["hide"]);
-        }
-
-        document.getElementById(style["Main"])?.classList.add(style["hideCursor"])
-      }
-
-      if (e.code === "Escape") {
-        newInput._close(true)
-      }
-    }
-
-    const oku = () => {
-      if (inalFt.cuef) ift.cuef.cureff().classList.remove(style["hide"]);
-
-      document.getElementById(style["Main"])?.classList.remove(style["hideCursor"])
-    }
-
-    document.addEventListener("keydown", okd)
-    document.addEventListener("keyup", oku)
-
-    return () => {
-      document.removeEventListener("keydown", okd)
-      document.removeEventListener("keyup", oku)
-    }
-  }, [powerSaveingMode])
-
-  /* CursorEffects */
-  useEffect(() => {
-    if (powerSaveingMode) return;
-    ift.cuef.cureff().classList.toggle(style["hide"], !inalFt.cuef)
-
-    const crtPoint = (x: number, y: number, ele: HTMLElement) => {
-      if (!inalFt.cuef) return;
-      const div = document.createElement("div")
-      div.style.top = y + "px"
-      div.style.left = x + "px"
-      div.appendChild(document.createElement("div"))
-      ele.appendChild(div)
-
-      console.log(`x:${x} , y:${y}`);
-
-      setTimeout(() => {
-        div.remove()
-      }, 10e3);
-    }
-
-    const touchMove = (e: TouchEvent) => {
-      if (!inalFt.cuef) return;
-      const points = e.changedTouches
-
-      for (let index = 0; index < points.length; index++) {
-        const p = points[index];
-        crtPoint(p.clientX, p.clientY, ift.cuef.traj())
-      }
-    }
-
-    const touchStart = (e: TouchEvent) => {
-      if (!inalFt.cuef) return;
-      const points = e.changedTouches
-
-      for (let index = 0; index < points.length; index++) {
-        const p = points[index];
-        crtPoint(p.clientX, p.clientY, ift.cuef.clickAni())
-      }
-    }
-
-    const touchEnd = () => {
-      if (!inalFt.cuef) return;
-      ift.cuef.cur().classList.add(style["hide"])
-    }
-
-    const mouseMove = (e: MouseEvent) => {
-      if (!inalFt.cuef) return;
-
-      console.log(`x:${e.clientX} , y:${e.clientY}`);
-
-      const cur = ift.cuef.cur().style
-
-      cur.top = e.clientY + "px"
-      cur.left = e.clientX + "px"
-
-      crtPoint(e.clientX, e.clientY, ift.cuef.traj())
-    }
-
-    const mouseDown = (e: MouseEvent) => {
-      if (!inalFt.cuef) return;
-      ift.cuef.cur().classList.add(style["down"])
-
-      crtPoint(e.clientX, e.clientY, ift.cuef.clickAni())
-    }
-
-    const mouseUp = (e: MouseEvent) => {
-      if (!inalFt.cuef) return;
-      ift.cuef.cur().classList.remove(style["down"])
-    }
-
-    document.addEventListener("touchstart", touchStart)
-    document.addEventListener("touchend", touchEnd)
-    document.addEventListener("touchmove", touchMove)
-
-    document.addEventListener("mousemove", mouseMove)
-    document.addEventListener("mousedown", mouseDown)
-    document.addEventListener("mouseup", mouseUp)
-
-    return () => {
-      document.removeEventListener("touchstart", touchStart)
-      document.removeEventListener("touchend", touchEnd)
-      document.removeEventListener("touchmove", touchMove)
-
-      document.removeEventListener("mousemove", mouseMove)
-      document.removeEventListener("mousedown", mouseDown)
-      document.removeEventListener("mouseup", mouseUp)
-    }
-  }, [powerSaveingMode])
-
   /* Console */
   useEffect(() => {
     const onkeydown = (e: KeyboardEvent) => {
@@ -1792,57 +1646,36 @@ function MyApp({ Component, pageProps }: AppProps) {
     };
   }, [Kiasole]);
 
-  useEffect(() => {
-    if (powerSaveingMode) return;
-    const effect = WebEffect.onBlur(style["blur"], document.getElementById(style["Cur"])!)
-    return () => {
-      effect.RemoveEvent()
-    }
-  }, [powerSaveingMode])
-
   _app = {
-    disableColor: function () {
+    disableColor() {
       setClrCtrlCntr(false)
       return false
     },
-    enableColor: function () {
+    enableColor() {
       setClrCtrlCntr(true)
       return true
     },
-    toggleColor: function () {
-      setClrCtrlCntr(e => !e)
-      return !clrCtrlCntr
+    toggleColor(sta?: boolean) {
+      let stat: boolean = sta ?? false
+      setClrCtrlCntr(e => { stat = sta ?? !e; return stat })
+      return stat
     },
-
     hideColorPanel(sta?: boolean) {
       let stat: boolean = sta ?? false
       setHidCtrlCntr(e => { stat = sta ?? !e; return stat })
       return stat
     },
-    setColor: function (color: string) {
+    setColor(color: string) {
       setColor(color)
       return colormgr.hexToRgb(color)
     },
-    setColor2: function (color: string) {
+    setColor2(color: string) {
       setColor2(color)
       return colormgr.hexToRgb(color)
     },
-    informalFunction: {
-      CursorEffects: function (mode: "TOG" | "SET", status?: boolean) {
-        if (powerSaveingMode) return false;
-        if (mode === "TOG") {
-          this.CursorEffects("SET", !inalFt.cuef)
-          return inalFt.cuef;
-        }
-
-        inalFt.cuef = status ?? false
-
-        console.log(inalFt.cuef);
-
-        return !ift.cuef.cureff().classList.toggle(style["hide"], !inalFt.cuef)
-      }
-    },
-    throwNotic: (message: string, time?: number) => {
+    color,
+    color2,
+    throwNotic(message: string, time?: number) {
       const div = document.createElement("div")
 
       div.innerHTML = message
@@ -1865,7 +1698,11 @@ function MyApp({ Component, pageProps }: AppProps) {
 
       return div
     },
-    clearNotic: () => {
+    throwNewNotic(message: string, time?: number) {
+      this.clearNotic();
+      return this.throwNotic(message, time)
+    },
+    clearNotic() {
       const list = ele.notic().children
 
       for (let index = 0; index < list.length; index++) {
@@ -1877,33 +1714,6 @@ function MyApp({ Component, pageProps }: AppProps) {
           e.remove()
         })()
 
-      }
-    },
-    Effects: {
-      FLASH: (color?: string) => {
-        if (powerSaveingMode) return false;
-        {
-          const div = document.createElement("div")
-
-          if (color) {
-            div.style.backgroundColor = color
-          }
-
-          div.style.zIndex = new Date().getTime().toString()
-
-          ele.Effect.flash().appendChild(div);
-
-          (
-            async () => {
-
-              await functions.timeSleep(1e3)
-
-              div.remove()
-            }
-          )()
-
-          return div
-        }
       }
     }
   }

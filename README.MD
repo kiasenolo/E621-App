@@ -1,9 +1,9 @@
-# [E621 Windowed App / inDev 0.0.3](./UPDATE.md)
+# [E621 Windowed App / inDev 0.1.0](./UPDATE.md)
 # 我要先講
 這東西：  
 動畫很多 也很卡  
 效能優化很抽象  
-沒有候選 ( Suggestion )  
+搜尋沒有自動選字
 甚至之後可能會不小心刪掉所有資料 或者是資料結構發生改變  
 請斟酌使用 不要過度依賴  
 
@@ -41,8 +41,6 @@ https://www.youtube.com/@YonKaGor
 對了 預設是沒任何賬號的 上面的演示圖是 我作品集裏面的版本  
 
 # 已知問題
-Shift + Tab 十分不好用 甚至等於不能用  
-因爲東西都用LocalStorage存 所以東西一多 會拖慢很多速度  
 沒有自動登錄的選項 預設都是開著的  
 postSearch的按鈕只能拖 暫時不能按（emm....雖然在postGetById裏面 你真的只能拖）  
 中英文混在一起 抽象  
