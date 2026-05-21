@@ -877,7 +877,7 @@ let [ELECTRON_APP_INFO, SET_ELECTRON_APP_INFO]: [ELECTRON_APP_INFO_TYPE, Dispatc
 
 let guestMode = false;
 let electronMode = false;
-const appName = "E621 App / inDev 0.1.0"
+const appName = "E621 App / inDev 0.1.1"
 
 type DispType<T> = [T, Dispatch<SetStateAction<T>>]
 type LocalDispType<T> = [T, SetValue<T>]
@@ -8671,7 +8671,7 @@ const windowsType = {
                           })
                         }
                       }}>E621 App</h1>
-                      <h2>inDev 0.1.0</h2>
+                      <h2>inDev 0.1.1</h2>
                       <h3>{navigator.appVersion}</h3>
 
                       <br />
