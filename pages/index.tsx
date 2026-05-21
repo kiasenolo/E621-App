@@ -21,7 +21,7 @@ import BACKGROUND_IMAGE from "./background.png"
 import HeadSetting from "@/data/components/HeadSetting";
 import PACKAGE_LIST from "@/package.json";
 import opfs, { Dirent } from "@/data/module/functions/module/opfs";
-import clsx from "clsx/lite";
+import clsx from "clsx";
 import useLocalStorage, { SetValue } from "@/data/module/use/LocalStorage";
 import Dexie, { Table } from 'dexie';
 const fs = opfs.promises
