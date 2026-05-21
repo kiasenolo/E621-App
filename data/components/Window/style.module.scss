@@ -176,7 +176,11 @@
       left: 4px;
       right: 4px;
       height: $size;
-      cursor: ns-resize;
+      cursor: Cursor(ns-resize);
+
+      &:active {
+        cursor: Cursor(ns-resize, act);
+      }
     }
 
     &.n {
@@ -192,7 +196,11 @@
       top: 4px;
       bottom: 4px;
       width: $size;
-      cursor: ew-resize;
+      cursor: Cursor(ew-resize);
+
+      &:active {
+        cursor: Cursor(ew-resize, act);
+      }
     }
 
     &.e {
@@ -215,25 +223,41 @@
     &.ne {
       top: $ofs;
       right: $ofs;
-      cursor: nesw-resize;
+      cursor: Cursor(nesw-resize);
+
+      &:active {
+        cursor: Cursor(nesw-resize, act);
+      }
     }
 
     &.nw {
       top: $ofs;
       left: $ofs;
-      cursor: nwse-resize;
+      cursor: Cursor(nwse-resize);
+
+      &:active {
+        cursor: Cursor(nwse-resize, act);
+      }
     }
 
     &.se {
       bottom: $ofs;
       right: $ofs;
-      cursor: nwse-resize;
+      cursor: Cursor(nwse-resize);
+
+      &:active {
+        cursor: Cursor(nwse-resize, act);
+      }
     }
 
     &.sw {
       bottom: $ofs;
       left: $ofs;
-      cursor: nesw-resize;
+      cursor: Cursor(nesw-resize);
+
+      &:active {
+        cursor: Cursor(nesw-resize, act);
+      }
     }
   }
 

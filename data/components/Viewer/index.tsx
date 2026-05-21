@@ -212,7 +212,6 @@ const Viewer = forwardRef<ViewerHandle, React.ComponentProps<"div"> & ViewerProp
         e.preventDefault(); stopInertia(); historyRef.current = [];
         const pt = getCompensatedPoint(e.clientX, e.clientY);
         drag.isDragging = true; drag.mouseX = pt.x; drag.mouseY = pt.y;
-        gestureLayer.style.cursor = "grabbing";
         trackMovement(drag.mouseX, drag.mouseY);
       }
     };
@@ -230,7 +229,6 @@ const Viewer = forwardRef<ViewerHandle, React.ComponentProps<"div"> & ViewerProp
     const handleMouseUp = () => {
       if (!drag.isDragging) return;
       drag.isDragging = false;
-      gestureLayer.style.cursor = "default";
       applyReleaseVelocity();
     };
 

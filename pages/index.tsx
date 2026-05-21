@@ -21,7 +21,7 @@ import BACKGROUND_IMAGE from "./background.png"
 import HeadSetting from "@/data/components/HeadSetting";
 import PACKAGE_LIST from "@/package.json";
 import opfs, { Dirent } from "@/data/module/functions/module/opfs";
-import clsx from "clsx";
+import clsx from "clsx/lite";
 import useLocalStorage, { SetValue } from "@/data/module/use/LocalStorage";
 import Dexie, { Table } from 'dexie';
 const fs = opfs.promises
@@ -71,6 +71,19 @@ const langList = {
     "ELECTRON.beforeUnload.yes": "Yap",
     "ELECTRON.beforeUnload.no": "Nope",
     "ELECTRON.beforeUnload.cancel": "Cancel",
+
+    "Notic.Downloading": "Downloading...",
+    "Notic.Downloading.done": "Download complete!",
+    "Notic.Downloading.err": "Download failed",
+    "Notic.imageCopyToClipper": "Image copied to clipboard!",
+    "Notic.imageCopyToClipper.err": "Copy failed. Go check the console.",
+    "Notic.post.notPreviousPage": "You've reached the very beginning.",
+    "Notic.templist.ondrop.setting": "Go to Settings to export your config. I'm not doing it for you here.",
+    "Notic.templist.ondrop.temp": "Not planning on dealing with tree structures.",
+    "Notic.templist.ondrop.text": "Uh... plain text? Maybe next time.",
+    "Notic.math.copy": "Copied $1 to clipboard",
+    "Notic.system.windowsStatusSaved": "Workspace state saved",
+    "Notic.system.keepOneWorkspace": "At least leave yourself a way out, okay?",
 
     /* >:System: */
 
@@ -465,6 +478,19 @@ const langList = {
     "ELECTRON.beforeUnload.yes": "存",
     "ELECTRON.beforeUnload.no": "不存",
     "ELECTRON.beforeUnload.cancel": "算了沒事",
+
+    "Notic.Downloading": "下載中",
+    "Notic.Downloading.done": "下載完成",
+    "Notic.Downloading.err": "下載失敗",
+    "Notic.imageCopyToClipper": "圖片已成功複製到剪貼簿！",
+    "Notic.imageCopyToClipper.err": "複製失敗 檢查一下console",
+    "Notic.post.notPreviousPage": "已經到頭了",
+    "Notic.templist.ondrop.setting": "儲存設定檔請去設定裏面自己匯出 這裏不會鳥你",
+    "Notic.templist.ondrop.temp": "沒打算玩樹狀結構",
+    "Notic.templist.ondrop.text": "欸....純文字嗎...下次",
+    "Notic.math.copy": "已複製 $1 到剪貼簿",
+    "Notic.system.windowsStatusSaved": "工作區狀態已儲存",
+    "Notic.system.keepOneWorkspace": "總要給自己留一條活路吧？",
 
     /* >:System: */
 
@@ -3374,14 +3400,14 @@ const menuBtn = {
           const url = post?.file.url;
           if (!url) return;
 
-          _app.throwNewNotic("開始下載...");
+          _app.throwNewNotic(t("Notic.Downloading"));
 
           const extension = url.split('.').pop() || 'bin';
           const filename = `e621_${post.id}.${extension}`;
 
           await tools.downloadMedia(url, filename);
 
-          _app.throwNewNotic("下載完成");
+          _app.throwNewNotic(t("Notic.Downloading.done"));
         },
         dragItem: {
           type: "postImg",
@@ -3412,7 +3438,7 @@ const menuBtn = {
                 const url = post?.file.url
                 if (!url) return;
                 try {
-                  _app.throwNewNotic("載圖ing");
+                  _app.throwNewNotic(t("Notic.Downloading"));
                   const proxiedUrl = toProxiedUrl(url);
                   const response = await fetch(proxiedUrl);
                   const originalBlob = await response.blob();
@@ -3424,9 +3450,9 @@ const menuBtn = {
                   const data = [new ClipboardItem({ "image/png": pngBlob })];
                   await navigator.clipboard.write(data);
 
-                  _app.throwNewNotic("圖片已成功複製到剪貼簿！");
+                  _app.throwNewNotic(t("Notic.imageCopyToClipper"));
                 } catch (err) {
-                  _app.throwNewNotic("複製失敗 檢查一下console");
+                  _app.throwNewNotic(t("Notic.imageCopyToClipper.err"));
                   console.error(err)
                 }
               },
@@ -4077,7 +4103,7 @@ const tools = {
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download failed:", err);
-      _app.throwNewNotic("下載失敗");
+      _app.throwNewNotic(t("Notic.Downloading.err"));
     }
   },
 }
@@ -5009,6 +5035,7 @@ const Components = {
             const [isSeeking, setIsSeeking] = useState(false);
 
             const mainObject = useRef<HTMLDivElement | null>(null);
+            const wasPlayingBeforeSeek = useRef(false);
 
             const togglePlay = useCallback(() => {
               if (videoRef.current) {
@@ -5042,6 +5069,23 @@ const Components = {
                 setIsFull(!isFull);
               }
             }, [isFull]);
+
+            const handleSeekStart = useCallback(() => {
+              wasPlayingBeforeSeek.current = isPlaying;
+              setIsSeeking(true);
+
+              if (videoRef.current) {
+                videoRef.current.pause();
+              }
+            }, [isPlaying]);
+
+            const handleSeekEnd = useCallback(() => {
+              setIsSeeking(false);
+
+              if (wasPlayingBeforeSeek.current && videoRef.current) {
+                videoRef.current.play();
+              }
+            }, []);
 
             const handleSeek = useCallback((time: number) => {
               if (videoRef.current) {
@@ -5178,8 +5222,10 @@ const Components = {
                       step={.01}
                       value={currentTime}
                       onChange={e => handleSeek(+e.currentTarget.value)}
-                      onMouseDown={_ => setIsSeeking(true)}
-                      onMouseUp={_ => setIsSeeking(false)}
+                      onMouseDown={handleSeekStart}
+                      onTouchStart={handleSeekStart}
+                      onMouseUp={handleSeekEnd}
+                      onTouchEnd={handleSeekEnd}
                     />
                     <div>{formatTime(duration)}</div>
                     <button onClick={toggleLoop}>
@@ -5652,11 +5698,11 @@ namespace searchWindow {
             setPoolInfo(info as any);
             if (nowSetting.cache.enable.pool && nowSetting.cache.enable.global) {
               E621_DB?.savePool(info as any).catch(err =>
-                Kiasole.error(`[E621_DB] savePool 失敗：` + err)
+                console.error(`[E621_DB] savePool 失敗：` + err)
               );
             }
           }
-        }).catch(err => Kiasole.error(`Pool Info Fetch Error: ${err}`));
+        }).catch(err => console.error(`Pool Info Fetch Error: ${err}`));
       }
     }, [poolId, mode]);
 
@@ -5710,7 +5756,7 @@ namespace searchWindow {
                 : (nowSetting.cache.enable.post.data && nowSetting.cache.enable.global);
 
               if (shouldSaveCache) {
-                E621_DB?.savePosts(newPosts).catch(err => Kiasole.error(`[E621_DB] savePosts 失敗：` + err));
+                E621_DB?.savePosts(newPosts).catch(err => console.error(`[E621_DB] savePosts 失敗：` + err));
               }
             }
           } catch (apiErr) {
@@ -5750,7 +5796,7 @@ namespace searchWindow {
 
           setFetchError(null);
         } catch (err) {
-          Kiasole.error(`第 ${apiPage} 頁抓取失敗 (線上/離線皆失敗)：` + err);
+          console.error(`第 ${apiPage} 頁抓取失敗 (線上/離線皆失敗)：` + err);
           setFetchError(String(err));
         } finally {
           fetchingPages.current.delete(pageKey);
@@ -6406,17 +6452,10 @@ const windowsType = {
           setFetchError(null);
         }
       } catch (e) {
-        Kiasole.error(`Post ${postId} load failed: ${e}`);
+        console.error(`Post ${postId} load failed: ${e}`);
         setFetchError(String(e));
       } finally {
         setIsLoading(false);
-      }
-    }, [postId]);
-
-    useEffect(() => {
-      if (!postData && postId !== 0) {
-        _app.throwNewNotic("已經沒東西了")
-        fetchPost();
       }
     }, [postId]);
 
@@ -6441,7 +6480,7 @@ const windowsType = {
       } else {
         let targetPage = currentPage + direction;
         if (targetPage < 1) {
-          _app.throwNewNotic("已經到頭了")
+          _app.throwNewNotic(t("Notic.post.notPreviousPage"))
           if (thisWindow?.customData?.type === "post") {
             const { parentData } = thisWindow?.customData?.data
             if (parentData) {
@@ -6497,7 +6536,7 @@ const windowsType = {
               });
               currentCache[targetPage] = targetPosts;
             } catch (e) {
-              Kiasole.error(`第 ${targetPage} 頁抓取失敗: ${e}`);
+              console.error(`第 ${targetPage} 頁抓取失敗: ${e}`);
               break;
             }
           }
@@ -6704,7 +6743,7 @@ const windowsType = {
     const handleSearch = async (nextId: string | number) => {
       const targetId = Number(nextId);
       if (isNaN(targetId) || targetId <= 0) {
-        Kiasole.error("Invalid ID");
+        console.error("Invalid ID");
         return;
       }
 
@@ -8346,13 +8385,11 @@ const windowsType = {
 
                 const [nowProcess, setNowProcess] = useState<[number, number] | null>(null)
 
-
                 useEffect(() => {
                   return () => {
                     exportUrl ?? URL.revokeObjectURL(exportUrl);
                   }
                 }, [])
-                const fileRef = useRef<HTMLInputElement>(null)
 
                 const handleExport = async () => {
                   setStatus(t("IN_DEV.exporting"))
@@ -8614,13 +8651,26 @@ const windowsType = {
                   );
                 };
 
+                const clickTimes = useRef(0)
+
                 return <div className={style["Information"]}>
                   <div className={style["Background"]}>
                     <NODATA.Fetching />
                   </div>
                   <div className={style["Text"]}>
                     <div className={style["Frame"]}>
-                      <h1>E621 App</h1>
+                      <h1 onClick={() => {
+                        clickTimes.current++
+                        if (clickTimes.current >= 5) {
+                          clickTimes.current = 0;
+                          WSA.userSetting(usrIndx).then(e => {
+                            e.set(p => {
+                              p.appearance.KIASTALA = !p.appearance.KIASTALA
+                              return p
+                            })
+                          })
+                        }
+                      }}>E621 App</h1>
                       <h2>inDev 0.1.0</h2>
                       <h3>{navigator.appVersion}</h3>
 
@@ -9091,15 +9141,15 @@ const windowsType = {
                   break;
                 };
                 case "setting": {
-                  _app.throwNewNotic("儲存設定檔請去設定裏面自己匯出 這裏不會鳥你");
+                  _app.throwNewNotic(t("Notic.templist.ondrop.setting"));
                   break;
                 };
                 case "temp": {
-                  _app.throwNewNotic("沒打算玩樹狀結構");
+                  _app.throwNewNotic(t("Notic.templist.ondrop.temp"));
                   break;
                 };
                 case "text": {
-                  _app.throwNewNotic("欸....純文字嗎...下次");
+                  _app.throwNewNotic(t("Notic.templist.ondrop.text"));
                   break;
                 };
               }
@@ -9718,6 +9768,7 @@ const Background = ({ bg }: { bg: workSpaceType.Unit.BaseItem.Image }) => {
   const cachedPost = Cache.useCachedPost(bg.fromPost ?? ({} as E621.Post));
   const cachedSrc = bg.fromPost ? cachedPost : bg.url;
 
+
   return (
     <div className={style["Background"]} key={bg.url}>
       {(() => {
@@ -9925,7 +9976,7 @@ const RunBox = (arg: RunBoxArgs) => {
           engName: `${ent("runBox.intro.mathCalc.calc")} : ${res}`,
           action() {
             someActions.copyString(res)
-            _app.throwNewNotic(`copy ${res} to clipboard`)
+            _app.throwNewNotic(t("Notic.math.copy").replace("$1", res))
             setRunBox(false)
           },
         }]
@@ -10520,7 +10571,7 @@ const Desktop = () => {
     const currentSnapshot = wm.captureSnapshot();
     await WSA.updateWorkspace(usrIndx, nowWorkSpace, { status: currentSnapshot });
 
-    _app.throwNewNotic("Windows Status Saved!");
+    _app.throwNewNotic(t("Notic.system.windowsStatusSaved"));
 
     if (logout) Logout();
   }, [nowWorkSpace]);
@@ -10661,7 +10712,7 @@ const Desktop = () => {
 
   const handleDeleteWorkspace = async (targetId: string) => {
     if (workSpaces.length <= 1) {
-      _app.throwNewNotic("總得留下一個桌面吧！");
+      _app.throwNewNotic(t("Notic.system.keepOneWorkspace"));
       return;
     }
 
@@ -10980,9 +11031,7 @@ const Desktop = () => {
 
       if (e.ctrlKey && (e.code === "KeyQ")) {
         keyispress = true
-        windowsList
-          .map(e => wmRef.current?.getWindow(e.id)!)
-          .filter(e => e.isFocused)[0]?.close();
+        wmRef.current?.nowFocusedWindow?.close();
       }
 
       if (e.altKey) {
@@ -12192,7 +12241,7 @@ const Login = () => {
 
       setDisplayDesktop(true);
     } else {
-      Kiasole.error("密碼錯誤");
+      console.error("密碼錯誤");
     }
   }, [selectUser, userList, appStatus]);
 
@@ -12219,18 +12268,24 @@ const Login = () => {
   const createAccount = useCallback(async () => {
     const newAcc = newAccInfoRef.current;
     if (!newAcc.id || !newAcc.name) {
-      _app.throwNewNotic("ID跟名字是必填的喔！");
+      if (newAcc.name) {
+        _app.throwNewNotic("The ID field is required");
+      } else if (newAcc.id) {
+        _app.throwNewNotic("The Name field is required");
+      } else {
+        _app.throwNewNotic("bruh where is your account information");
+      }
       return;
     }
 
     try {
-      _app.throwNewNotic("正在建立資料...");
+      _app.throwNewNotic("creating data...");
       await WSA.newUser(newAcc);
       await functions.timeSleep(300);
 
       const { users: freshList } = await refreshUserList();
 
-      _app.throwNewNotic("建立成功！");
+      _app.throwNewNotic("nice");
 
       const newIndex = freshList.findIndex(u => u.id === newAcc.id);
       if (newIndex !== -1) {
@@ -12239,8 +12294,8 @@ const Login = () => {
         setNewAccount(false);
       }
     } catch (e) {
-      Kiasole.error("Account Creation Error: " + e);
-      _app.throwNewNotic("建立失敗，請檢查 Console");
+      console.error("Account Creation Error: " + e);
+      _app.throwNewNotic("hmmmm fail to create account,chack the console");
     }
   }, [refreshUserList, login]);
 

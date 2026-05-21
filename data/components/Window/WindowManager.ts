@@ -49,9 +49,21 @@ export type WindowSnapshot<T = undefined> = {
   zIndex: number;
   isMinimized: boolean;
   isMaximized: boolean;
+  isSnapped: boolean;
+  preMaximizedRect?: WindowRect;
   isTop: boolean;
   isFocused: boolean;
   customData?: T;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  actions?: {
+    canMinimize?: boolean;
+    canMaximize?: boolean;
+    canResize?: boolean;
+    canClose?: boolean;
+  };
 };
 
 export type WindowInstance<T = undefined> = WindowSnapshot<T> & {
@@ -158,7 +170,41 @@ export class WindowManager<T = undefined> {
     if (getComputedStyle(this.container).position === 'static') {
       this.container.style.position = 'relative';
     }
+
+    this.container.addEventListener("pointerdown", this._onContainerPointerDown);
   }
+
+  /** 點到 container 背景（非視窗）時，blur 所有視窗 */
+  private _onContainerPointerDown = (e: PointerEvent): void => {
+    if (e.target === this.container) {
+      this.blurAll();
+    }
+  };
+
+  /** 清除所有視窗的 focus 狀態 */
+  public blurAll = (): void => {
+    let changed = false;
+    this.windows.forEach((w) => {
+      if (w.focused && !w.isClosing) {
+        w.focused = false;
+        this.emit("blur", { id: w.id });
+        changed = true;
+      }
+    });
+    if (changed) this.notify();
+  };
+
+  public get nowFocusedWindow(): WindowInstance<T> | undefined {
+    const focused = this.windows.find((w) => w.focused && !w.isClosing);
+    return focused ? this.getWindow(focused.id) : undefined;
+  }
+
+  public destroy = (): void => {
+    this.container.removeEventListener("pointerdown", this._onContainerPointerDown);
+    [...this.windows].forEach((w) => this._finalizeDestroy(w.id));
+    this.subscribers.clear();
+    this.eventListeners = {};
+  };
 
   public setting = {
     set: (opts: Partial<WMSettings>) => {
@@ -421,6 +467,7 @@ export class WindowManager<T = undefined> {
       isTop: win.focused,
       isFocused: win.focused,
       customData: win.customData,
+      isSnapped: win.isSnapped,
       addEventListener: <K extends keyof WindowManagerEventMap<T>>(
         event: K,
         listener: (data: WindowManagerEventMap<T>[K]) => void
@@ -460,9 +507,24 @@ export class WindowManager<T = undefined> {
   public captureSnapshot = (): WindowSnapshot<T>[] => {
     return this.windows.map((w) => {
       return {
-        id: w.id, title: w.title, rect: this.getCurrentRect(w),
-        zIndex: w.zIndex, isMinimized: w.isMinimized, isMaximized: w.isMaximized,
-        isTop: w.focused, isFocused: w.focused, customData: w.customData,
+        id: w.id,
+        title: w.title,
+        rect: this.getCurrentRect(w),
+        zIndex: w.zIndex,
+        isMinimized: w.isMinimized,
+        isMaximized: w.isMaximized,
+        isSnapped: w.isSnapped,
+        preMaximizedRect: w.preMaximizedRect
+          ? { ...w.preMaximizedRect }
+          : undefined,
+        isTop: w.focused,
+        isFocused: w.focused,
+        customData: w.customData,
+        minWidth: w.currentProps.minWidth,
+        minHeight: w.currentProps.minHeight,
+        maxWidth: w.currentProps.maxWidth,
+        maxHeight: w.currentProps.maxHeight,
+        actions: w.currentProps.actions,
       };
     });
   };
@@ -615,8 +677,16 @@ export class WindowManager<T = undefined> {
         this.updateWindow(snap.id, { title: snap.title, rect: snap.rect, customData: snap.customData });
       } else {
         this.createWindow({
-          id: snap.id, title: snap.title, rect: snap.rect,
-          customData: snap.customData, children: contentFactory(snap.id, snap.customData),
+          id: snap.id,
+          title: snap.title,
+          rect: snap.rect,
+          customData: snap.customData,
+          children: contentFactory(snap.id, snap.customData),
+          minWidth: snap.minWidth,
+          minHeight: snap.minHeight,
+          maxWidth: snap.maxWidth,
+          maxHeight: snap.maxHeight,
+          actions: snap.actions,
         }, true);
         win = this.windows.find(w => w.id === snap.id);
       }
@@ -625,6 +695,10 @@ export class WindowManager<T = undefined> {
         win.isMinimized = snap.isMinimized;
         win.zIndex = snap.zIndex;
         win.isMaximized = snap.isMaximized;
+        win.isSnapped = snap.isSnapped ?? false;
+        win.preMaximizedRect = snap.preMaximizedRect
+          ? { ...snap.preMaximizedRect }
+          : undefined;
         win.focused = snap.isMinimized ? false : snap.isFocused;
         if (win.zIndex > maxZ) maxZ = win.zIndex;
         this.focusHistory.push(win.id);

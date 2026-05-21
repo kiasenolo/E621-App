@@ -212,12 +212,16 @@ $_current-style-clr-func: null;
           width: 10px;
           background: InpColor(.8);
           border-radius: 5px;
-          cursor: w-resize;
+          cursor: Cursor(ew-resize);
 
           &:hover {
             height: 35px;
             background: InpColor();
             border-radius: 3px;
+          }
+
+          &:active {
+            cursor: Cursor(ew-resize,act);
           }
         }
       }

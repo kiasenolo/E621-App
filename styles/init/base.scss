@@ -38,13 +38,16 @@ $_current-style-clr-func: null;
   }
 
   ::-webkit-scrollbar-thumb {
-    border-radius: 10px;
     border: 5px solid transparent;
     background-clip: content-box;
     background-color: BasColor(.7);
 
-    :hover {
+    &:hover {
       background-color: BasColor();
+    }
+
+    &:active {
+      background-color: BasColor(.3);
     }
   }
 

@@ -22,6 +22,21 @@ $blur-effect-5: blur(var(--blur-effect-5)) $noise-overlay;
   @return rgba(calc(var(--theme-color2-r) + (255 * $num )), calc(var(--theme-color2-g) + (255 * $num )), calc(var(--theme-color2-b) + (255 * $num )), $opacit );
 }
 
+@function Cursor($type: default, $pref:hov) {
+  $addon: 0 0;
+  $_type: $type;
+
+  @if $type ==url {
+    $_type: pointer;
+  }
+
+  @if $type ==ns-resize or $type ==ew-resize or $type ==nesw-resize or $type ==nwse-resize or $type ==text {
+    $addon: 13.5 13.5;
+  }
+
+  @return url("/_SYSTEM/Cursor/#{$pref}-#{$type}.svg") #{$addon}, $_type;
+}
+
 @mixin MonacoEditor() {
   filter: grayscale(1) brightness(.9);
   position: absolute;
