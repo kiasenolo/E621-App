@@ -1,4 +1,4 @@
-# [E621 Windowed App / inDev 0.1.0](./UPDATE.md)
+# [E621 Windowed App / inDev 0.1.1](./UPDATE.md)
 # 我要先講
 這東西：  
 動畫很多 也很卡  
@@ -51,10 +51,6 @@ postSearch的按鈕只能拖 暫時不能按（emm....雖然在postGetById裏面
 ## 其他的東西
 有時候 視窗還原不回來怎麽辦？  
 那就右鍵圖示 點Reset Rect 然後隨便一個size 就可以了  
-
-Alt Tab切出去再切回來 視窗不能互動 怎麽辦  
-按一下Alt 鬆開 就沒事了  
-因爲 他抓不到Alt鬆開的event  
 
 ***
 
