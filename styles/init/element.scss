@@ -2,6 +2,7 @@
 @use "sass:meta";
 
 $_current-style-clr-func: null;
+$_active-clr-func: null;
 
 @function EleColor($value: 1, $opacity: 1) {
   @if $_current-style-clr-func ==null {
@@ -41,7 +42,7 @@ $_current-style-clr-func: null;
       }
 
       tr {
-        &:first {
+        &:first-child {
           background-color: #0000;
         }
 

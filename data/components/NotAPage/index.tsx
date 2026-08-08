@@ -5,6 +5,7 @@ import { Kiasole, setCustomCommandType } from '@/pages/_app';
 import Link from 'next/link';
 import functions from '@/data/module/functions';
 import HeadSetting from '../HeadSetting';
+import WebEffect, { ParallaxItem } from '@/data/module/WebEffect';
 
 const { htmlElement } = functions;
 type NAP = {
@@ -14,6 +15,7 @@ type NAP = {
 const NotAPage: NextPage<NAP> = (prop) => {
 
   const [nowDir, setDir] = useState<string>("")
+  const [ParallaxEffectLock, setParallaxEffectLock] = useState<boolean>(false)
 
   const text = useMemo(() => (
     prop.info ?
@@ -54,6 +56,49 @@ const NotAPage: NextPage<NAP> = (prop) => {
   useEffect(() => {
     document.getElementById(style["InnerContent"])?.classList.remove(style["hide"])
   }, [])
+
+  useEffect(() => {
+    const keyEvent = (e: KeyboardEvent) => {
+      if (e.altKey && e.code === "KeyL") {
+        setParallaxEffectLock(e => !e)
+      }
+    }
+
+    document.addEventListener("keydown", keyEvent)
+    return () => {
+      document.removeEventListener("keydown", keyEvent)
+    }
+  }, [])
+
+  useEffect(() => {
+    const list: [string, number, number][] = [
+      ["efct-UHD", 5, 5],
+      ["efct-BG", -5, -5],
+
+      ["efct-BH1", -8, -5],
+      ["efct-BH2", -8, -5],
+      ["efct-BH3", -8, -5],
+
+      ["efct-AFK", -2, -2],
+    ]
+
+    const effect = WebEffect.pageParallaxEffect(
+      list.map(e => ({
+        Element: document.getElementById(e[0]),
+        XoffSet: e[1],
+        YoffSet: e[2],
+      })) as ParallaxItem[],
+      () => ParallaxEffectLock
+    )
+
+    if (ParallaxEffectLock) {
+      effect.Reset();
+    }
+
+    return () => {
+      effect.RemoveEvent()
+    }
+  }, [ParallaxEffectLock])
 
   return (
     <>

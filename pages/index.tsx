@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, useMemo, RefObject, ReactNode
 import style from "./style.module.scss";
 import winStyle from "@/data/components/Window/style.module.scss";
 import { LABS_E621_API } from "@/pages/api/_LABS/E621-API/_API-LIST";
-import { defaultWMSettings, SnapPosition, WindowAnchor, WindowInstance, WindowManager, WindowSnapshot, WMSettings } from "@/data/components/Window/WindowManager";
+import { defaultWMSettings, SnapPosition, WindowAnchor, WindowInstance, WindowManager, WindowManagerEventMap, WindowSnapshot, WMSettings } from "@/data/components/Window/WindowManager";
 import { _app, Kiasole, newInput } from "@/pages/_app";
 import { E621 } from "@/pages/api/_LABS/E621-API/types/e621";
 import { Button } from "./components/Button";
@@ -24,7 +24,25 @@ import opfs, { Dirent } from "@/data/module/functions/module/opfs";
 import clsx from "clsx";
 import useLocalStorage, { SetValue } from "@/data/module/use/LocalStorage";
 import Dexie, { Table } from 'dexie';
+import { dontUseProxy } from "@/pages/api/_LABS/_LABS-TOOLS/_labsApiGenerater";
 const fs = opfs.promises
+
+const devopts = {
+  askYouBeforeYouLeave: !false,
+  blurNSFWContent: !true,
+  blurAnyContent: !true,
+}
+
+function canBlurContent(post: E621.Post, size: number) {
+  const blur = (size: number) => `blur(${size}px)`;
+  if (devopts.blurAnyContent) return blur(size);
+  if (devopts.blurNSFWContent) {
+    if (post.rating === "e" || post.rating === "q")
+      return blur(size)
+  } else {
+    return undefined;
+  }
+}
 
 /*
  * 這個 是一個 個人專案
@@ -37,11 +55,34 @@ const fs = opfs.promises
 
 let storage = "Main"
 
-const GetNowTime = () => {
-  return new Date().getTime()
-}
-const MakeID = () => {
-  return GetNowTime().toString()
+let forseUseProxy = false;
+let canCors = false
+const nativeFetch = () => !forseUseProxy;
+const nonePrxy = () => canCors ? false : dontUseProxy;
+
+const GetNowTime = () => new Date().getTime();
+
+const MakeID = () => GetNowTime().toString();
+
+const iconList = {
+  "taskBar.postSearch": <></>,
+  "taskBar.post": <></>,
+  "taskBar.postGetByID": <></>,
+  "taskBar.pool": <></>,
+  "taskBar.viewer": <></>,
+  "taskBar.peekPreview": <></>,
+  "taskBar.setting": <></>,
+  "taskBar.tmpList": <></>,
+  "startMenu.postSearch": <></>,
+  "startMenu.postGetByID": <></>,
+  "startMenu.pool": <></>,
+  "startMenu.tmpList": <></>,
+  "setting.search": <></>,
+  "setting.account": <></>,
+  "setting.download": <></>,
+  "setting.storage": <></>,
+  "setting.appearance": <></>,
+  "setting.information": <></>,
 }
 
 const langList = {
@@ -84,6 +125,7 @@ const langList = {
     "Notic.math.copy": "Copied $1 to clipboard",
     "Notic.system.windowsStatusSaved": "Workspace state saved",
     "Notic.system.keepOneWorkspace": "At least leave yourself a way out, okay?",
+    "Notic.system.wallpaperHasBeenUse": "This Wallpaper Has Been Use In Another Workspace",
 
     /* >:System: */
 
@@ -157,6 +199,9 @@ const langList = {
     "windowsType.postSearch.jumpToPage": "Jump To Page",
     "windowsType.postSearch.jumpToPage.Cancel": "<-- Cancel",
     "windowsType.postSearch.jumpToPage.Apply": "Apply -->",
+
+    "windowsType.postSearch.placeholder": "Search for tags",
+    "windowsType.postSearch.placeholder.pool": "Pool ID",
 
     "windowsType.postSearch.filter": "Filter",
 
@@ -234,7 +279,7 @@ const langList = {
 
     /* >:setting: */
 
-    "setting.Back": "<- Back",
+    "setting.Back": "< Back",
     "setting.Home": "Home",
 
     /* Search */
@@ -491,6 +536,7 @@ const langList = {
     "Notic.math.copy": "已複製 $1 到剪貼簿",
     "Notic.system.windowsStatusSaved": "工作區狀態已儲存",
     "Notic.system.keepOneWorkspace": "總要給自己留一條活路吧？",
+    "Notic.system.wallpaperHasBeenUse": "這個桌布已經在其他工作區被使用",
 
     /* >:System: */
 
@@ -542,7 +588,7 @@ const langList = {
     "menuButton.OpenWithPostSearch": "在作品搜尋裏開啓",
     "menuButton.OpenWithBrowser": "在瀏覽器中開啟",
     "menuButton.OpenWithViewer": "在圖片檢視器中開啟",
-    "menuButton.OpenWithGetByID": "用 ID 抓作品並開啟",
+    "menuButton.OpenWithGetByID": "用 ID 抓作品開啟",
     "menuButton.SetAsWallpaper": "設成桌布",
     "menuButton.SetAsAvatar": "設成頭貼",
 
@@ -563,6 +609,9 @@ const langList = {
     "windowsType.postSearch.jumpToPage": "跳轉至頁",
     "windowsType.postSearch.jumpToPage.Cancel": "<-- 算了",
     "windowsType.postSearch.jumpToPage.Apply": "套用 -->",
+
+    "windowsType.postSearch.placeholder": "搜尋標籤",
+    "windowsType.postSearch.placeholder.pool": "圖池 ID",
 
     "windowsType.postSearch.filter": "篩選器",
 
@@ -625,8 +674,6 @@ const langList = {
     "components.post.info.Favs": "喜歡數",
     "components.post.info.Posted": "日期",
 
-    /* 補齊部分 */
-
     "components.post.parent": "母作品 : ",
     "components.post.children": "子作品 : ",
     "components.post.pool": "圖池 : ",
@@ -637,7 +684,7 @@ const langList = {
 
     /* >:setting: */
 
-    "setting.Back": "<- 返回",
+    "setting.Back": "< 返回",
     "setting.Home": "主頁",
 
     /* Search */
@@ -824,7 +871,7 @@ const langList = {
     "runBox.intro.mathCalc": "數學計算",
     "runBox.intro.mathCalc.calc": "計算",
 
-    "runBox.intro.searchPost": "搜尋貼文",
+    "runBox.intro.searchPost": "作品搜尋",
     "runBox.intro.searchPost.search": "搜尋",
     "runBox.intro.searchPost.noTag": "在沒有任何標籤的情況下搜尋",
 
@@ -877,10 +924,11 @@ let [ELECTRON_APP_INFO, SET_ELECTRON_APP_INFO]: [ELECTRON_APP_INFO_TYPE, Dispatc
 
 let guestMode = false;
 let electronMode = false;
-const appName = "E621 App / inDev 0.1.1"
+const appName = "E621 App / inDev 0.1.2"
 
-type DispType<T> = [T, Dispatch<SetStateAction<T>>]
-type LocalDispType<T> = [T, SetValue<T>]
+type SetStateType<T> = Dispatch<SetStateAction<T>>;
+type DispType<T> = [T, SetStateType<T>];
+type LocalDispType<T> = [T, SetValue<T>];
 
 let [READY, SET_READY]: DispType<boolean> = [false, () => { }]
 let [APP_READY, SET_APP_READY]: DispType<boolean> = [false, () => { }]
@@ -1464,7 +1512,6 @@ namespace workSpaceTypeOld {
         name?: string,
         createAt: number,
         windowId: string,
-        windowTitle: string,
         data: e621Type.defaul
       }
     }
@@ -1584,7 +1631,6 @@ namespace workSpaceType {
         name?: string,
         createAt: number,
         windowId: string,
-        windowTitle: string,
         data: e621Type.defaul
       }
     }
@@ -2157,7 +2203,7 @@ namespace WSAction {
         await writeRecursive(this.rootDir, "");
       }
 
-      return await zip.generateAsync({ type: "uint8array", compression: "STORE" });
+      return await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 9 } });
     }
 
     public async importSaves(zipSource: Blob | ArrayBuffer | Uint8Array): Promise<void> {
@@ -2727,7 +2773,7 @@ namespace WSAction {
       userId: string,
       wsId: string,
       type: "status"
-    ): Promise<workSpaceType.Unit.windowsStatus[]>;
+    ): Promise<workSpaceType.Unit.windowsStatus>;
     public async getWorkspaceInfo(
       userId: string,
       wsId: string,
@@ -3180,6 +3226,7 @@ namespace MenuAction {
   export type Item = {
     name: string
     action?: () => void | Promise<void>,
+    onContextMenu?: () => void | Promise<void>,
     dragItem?: e621Type.DragItemType.defaul,
     active?: boolean,
   } | undefined
@@ -3269,52 +3316,12 @@ const MenuAction: MenuAction.ActionType = {
   closeMenu: () => { }
 }
 
-const dragItem = (e: React.DragEvent, item: e621Type.DragItemType.defaul, ext?: object) => {
-  if (item.type === "text") { e.dataTransfer.setData("text/plain", item.data); return; };
-  e.dataTransfer.setData(e621Type.DragItemType.appname, JSON.stringify(item));
-
-  let url = "";
-
-  switch (item.type) {
-    case "tag": {
-      let q = makeQuery({ tags: item.data.tag })
-      if (item.data.action === "-") q = makeQuery({ tags: "-" + item.data.tag });
-      url = "https://e621.net/posts?" + q;
-
-      break;
-    };
-    case "post": {
-      url = "https://e621.net/posts/" + item.data.id;
-      break;
-    };
-    case "postImg": {
-      url = item.data.file.url!;
-      break;
-    };
-    case "pool": {
-      url = "https://e621.net/pools/" + item.data.poolId;
-      break;
-    };
-    case "postId": {
-      url = "https://e621.net/pools/" + item.data;
-      break;
-    };
-    case "postSearch": {
-      url = "https://e621.net/posts?" + makeQuery({ tags: item.data.searchTags.join(" ") });
-      break;
-    };
-  };
-
-  e.dataTransfer.setData("text/uri-list", url + makeQuery(ext ?? {}))
-  e.dataTransfer.setData("text/plain", url + makeQuery(ext ?? {}));
-}
-
 const menuBtn = {
   copyJSON: (data?: object, active?: boolean, text?: string) => {
     return data ? [{
       name: text ?? t("menuButton.CopyRawJson"),
       action() {
-        someActions.copyString(JSON.stringify(data, null, 2))
+        copyString(JSON.stringify(data, null, 2))
       },
       dragItem: {
         type: "text",
@@ -3329,7 +3336,7 @@ const menuBtn = {
       {
         name: t("menuButton.OpenWithBrowser"),
         action() {
-          open(`https://e621.net/posts/${id}${urlQue ? "?" : ""}${makeQuery(urlQue ?? {})}`)
+          acts.open.browser.post(id, urlQue)
         },
         dragItem: {
           type: "post",
@@ -3341,7 +3348,7 @@ const menuBtn = {
         name: t("menuButton.OpenWithViewer"),
         action() {
           if (post)
-            someActions.openWithViewer(post)
+            acts.open.view(post)
         },
         dragItem: {
           type: "postImg",
@@ -3353,7 +3360,7 @@ const menuBtn = {
         name: t("menuButton.OpenWithGetByID"),
         action() {
           if (post)
-            someActions.openWithGetByID(post)
+            acts.open.getByID(post)
         },
         dragItem: {
           type: "post",
@@ -3365,22 +3372,23 @@ const menuBtn = {
         name: t("menuButton.SaveToTmp"),
         action() {
           if (post)
-            someActions.saveToTmp(usrIndx, {
+            acts.saveToTmp(usrIndx, {
               type: "postGetByID",
               data: {
                 currentId: post.id,
                 status: "success",
                 fetchedPost: post
               }
-            }, `Post Get By ID [ ${post.id} ]`, `post_get_by_id-${post.id}`)
+            }, `post_get_by_id-${post.id}`)
         },
+        onContextMenu() { acts.windows.tempList() },
         dragItem: {
           type: "post",
           data: post!
         },
         active: post ? true : false,
       },
-      {
+      ...(nonePrxy() ? [] : [{
         name: (() => {
           switch (post?.file.ext) {
             case "jpg":
@@ -3414,11 +3422,11 @@ const menuBtn = {
           data: post!
         },
         active: !!post?.file.url
-      },
+      },] as MenuAction.Item[]),
       {
         name: t("menuButton.CopyURL"),
         action() {
-          someActions.copyString(`https://e621.net/posts/${id}${urlQue ? "?" : ""}${makeQuery(urlQue ?? {})}`)
+          copyString(E6Url.post(id, urlQue))
         },
         dragItem: {
           type: "post",
@@ -3427,6 +3435,7 @@ const menuBtn = {
         active: !!post
       },
       ...(() => {
+        if (nonePrxy()) return [];
         switch (post?.file.ext) {
           case "jpg":
           case "jpeg":
@@ -3470,7 +3479,7 @@ const menuBtn = {
       {
         name: t("menuButton.CopyID"),
         action() {
-          someActions.copyString(id.toString())
+          copyString(id.toString())
         },
         dragItem: {
           type: "text",
@@ -3481,7 +3490,10 @@ const menuBtn = {
         name: t("menuButton.SetAsWallpaper"),
         action() {
           if (post)
-            someActions.setAsWallpaper(usrIndx, post.file.url!, post)
+            SetS.wallpaper(usrIndx, post.file.url!, post)
+        },
+        onContextMenu() {
+          acts.setting.wallpaper();
         },
         active: post ? true : false,
       },
@@ -3489,7 +3501,10 @@ const menuBtn = {
         name: t("menuButton.SetAsAvatar"),
         action() {
           if (post)
-            someActions.setAvatar(usrIndx, post.file.url!, post)
+            SetS.avatar(usrIndx, post.file.url!, post)
+        },
+        onContextMenu() {
+          acts.setting.avatar()
         },
         active: post ? true : false,
       },
@@ -3502,7 +3517,7 @@ const menuBtn = {
       {
         name: t("menuButton.CopyTagName"),
         action() {
-          someActions.copyString(tag)
+          copyString(tag)
         },
         dragItem: {
           type: "text",
@@ -3530,7 +3545,28 @@ const menuBtn = {
           }
         }
       },
-
+      {
+        name: t("menuButton.SaveToTmp"),
+        action() {
+          acts.saveToTmp(usrIndx, {
+            type: "postSearch",
+            data: {
+              searchTags: [tag],
+              pageCache: [],
+              nowPage: 1,
+            }
+          }, `post_search-${GetNowTime()}`)
+        },
+        onContextMenu() { acts.windows.tempList() },
+        dragItem: {
+          type: "postSearch",
+          data: {
+            searchTags: [tag],
+            pageCache: [],
+            nowPage: 1,
+          }
+        }
+      },
     ]
 
     return _
@@ -3731,6 +3767,74 @@ const ent = (key: keyof typeof langList['en-us']) => {
   }
 };
 
+const getWindowTitle = (
+  customData: e621Type.defaul,
+  options?: { isOfflineMode?: boolean }
+): string => {
+  const offlineSuffix = options?.isOfflineMode ? " { OFFLINE DB }" : "";
+
+  switch (customData.type) {
+    case "postSearch": {
+      const { searchTags } = customData.data;
+      const tagsPart = searchTags.length === 0
+        ? t("windowsType.postSearch.title.noTags")
+        : searchTags.join(",");
+      return `${t("windowsType.postSearch")} [ ${tagsPart} ]${offlineSuffix}`;
+    }
+    case "pool": {
+      const { poolId, poolInfo, nowPage: page } = customData.data;
+      if (poolInfo) {
+        return `${t("windowsType.pool")} : ${poolInfo.name.replace(/_/g, " ")} [Page ${page}]${offlineSuffix}`;
+      }
+      if (poolId) {
+        return `${t("windowsType.pool")} : ${poolId} [ Page : ${page} ]${offlineSuffix}`;
+      }
+      return `${t("windowsType.pool")}${offlineSuffix}${offlineSuffix}`;
+    }
+    case "post": {
+      const { postId, cachedPost } = customData.data;
+      if (cachedPost) {
+        return `${t("windowsType.post")} / ${cachedPost.tags.artist.join(",")} - ${cachedPost.id}`;
+      }
+      return `${t("windowsType.post")} / ${postId}`;
+    }
+    case "postGetByID": {
+      const { currentId } = customData.data;
+      return `${t("windowsType.postGetByID")} [ ${currentId} ]`;
+    }
+    case "viewer": {
+      return `${t("windowsType.viewer")} [ ${customData.data.id} ]`;
+    }
+    case "preview": {
+      return `${t("windowsType.preview")} [ ${customData.data.id} ]`;
+    }
+    case "setting": {
+      const nowPage = customData.data;
+      if (nowPage === "NONE") {
+        return t("windowsType.setting");
+      }
+      const capCat = functions.str.capitalizeWords(nowPage.categorie);
+      return `${t("windowsType.setting")} / ${t(`setting.${capCat}` as any)} > ${t(`setting.${capCat}.${nowPage.pages}` as any)}`;
+    }
+    case "tmp": {
+      return t("windowsType.tmpList");
+    }
+    default:
+      return "";
+  }
+};
+
+const updateAllWindowTitles = () => {
+  const wm = wmRef.current;
+  if (!wm) return;
+
+  wm.getWindows().forEach(winInfo => {
+    const win = wm.getWindow(winInfo.id);
+    if (!win?.customData) return;
+    win.setTitle(getWindowTitle(win.customData));
+  });
+};
+
 /* ========================================================================================= */
 
 const E621_AUTH = () => {
@@ -3754,27 +3858,42 @@ const DELAY_EFFECT = (has: any, not?: any) => {
 
 /* ========================================================================================= */
 
-const someActions = {
-  setAppState: async (
+const E6Url = {
+  post: (id: number | string, urlQue?: object) => {
+    return `https://e621.net/posts/${id}${urlQue ? "?" : ""}${makeQuery(urlQue ?? {})}`
+  },
+  pool: (id: number | string) => {
+    return `https://e621.net/pools/${id}`
+  },
+  search: (searchTags: string[]) => {
+    return `https://e621.net/posts?tags=${new URLSearchParams({ tags: searchTags.join(" ") }).toString()}`
+  },
+};
+
+let ChackWallpaperUse = (id?: number) => { return false }
+
+const SetS = {
+  appState: async (
     chang: (e: workSpaceType.App) => workSpaceType.App
   ) => {
     await WSA.setAppStatus(chang(await WSA.getAppStatus()))
   },
-  setSetting: async (
+  setting: async (
     id: string,
     chang: (e: workSpaceType.Unit.Setting) => workSpaceType.Unit.Setting
   ) => {
     const set = await WSA.userSetting(id)
     await set.set(chang(await set.get()))
   },
-  setUsrInfo: async (
+  usrInfo: async (
     id: string,
     chang: (e: workSpaceType.Unit.SaveInfo) => workSpaceType.Unit.SaveInfo
   ) => {
     const set = await WSA.userSaveInfo(id)
     await set.set(chang(await set.get()))
   },
-  setAsWallpaper: async (id: string, url: string, post?: E621.Post,) => {
+  wallpaper: async (id: string, url: string, post?: E621.Post,) => {
+    if (ChackWallpaperUse(post?.id)) _app.throwNewNotic(t("Notic.system.wallpaperHasBeenUse"));
     const state = await (await WSA.userState(id)).get()
     const wsInfo = await WSA.getWorkspaceInfo(id, state.nowWorkSpace, "setting")
     await WSA.updateWorkspace(id, state.nowWorkSpace, {
@@ -3789,7 +3908,7 @@ const someActions = {
       }
     })
   },
-  setColor: async (id: string, color: string,) => {
+  color: async (id: string, color: string,) => {
     const state = await (await WSA.userState(id)).get()
     const wsInfo = await WSA.getWorkspaceInfo(id, state.nowWorkSpace, "setting")
     await WSA.updateWorkspace(id, state.nowWorkSpace, {
@@ -3799,8 +3918,8 @@ const someActions = {
       }
     })
   },
-  setAvatar: async (id: string, url: string, post?: E621.Post,) => {
-    await someActions.setUsrInfo(id, e => {
+  avatar: async (id: string, url: string, post?: E621.Post,) => {
+    await SetS.usrInfo(id, e => {
       e.user.avatar = {
         url,
         positionX: 50,
@@ -3810,27 +3929,205 @@ const someActions = {
       return e
     })
   },
-  saveToTmp: async (id: string, item: e621Type.defaul, title: string, windowId: string) => {
+}
+
+const acts = {
+  saveToTmp: async (id: string, item: e621Type.defaul, windowId: string) => {
     await WSA.addTmpItem(id, {
       createAt: GetNowTime(),
-      windowTitle: title,
       windowId,
       data: cloneDeep(item),
     })
   },
-  copyString: (data: string) => {
-    navigator.clipboard.writeText(data)
+  open: {
+    getByID: (post: E621.Post) => { },
+    view: (post: E621.Post) => { },
+    browser: {
+      post: (id: number | string, urlQue?: object) => {
+        open(E6Url.post(id, urlQue))
+      },
+      pool: (id: number | string) => {
+        open(E6Url.pool(id))
+      },
+      search: (searchTags: string[]) => {
+        open(E6Url.search(searchTags))
+      },
+    },
   },
-  openWithGetByID: (post: E621.Post) => { },
-  openWithViewer: (post: E621.Post) => { },
+  windows: {
+    tempList: () => {
+      createWindow(wmRef, {
+        type: "tmp",
+      })
+    },
+    setting: () => {
+      createWindow(wmRef, {
+        type: "setting",
+        data: "NONE"
+      })
+    },
+  },
+  setting: {
+    wallpaper: () => {
+      createWindow(wmRef, {
+        type: "setting",
+        data: {
+          categorie: "appearance",
+          pages: "wallpaper"
+        },
+      }, {}, true)
+    },
+    avatar: () => {
+      createWindow(wmRef, {
+        type: "setting",
+        data: {
+          categorie: "account",
+          pages: "avatar"
+        },
+      }, {}, true)
+    },
+  }
+}
+
+type parseE621Url = (urlString: string) =>
+  | { type: "post"; postId: number; searchTags?: string[] }
+  | { type: "postSearch"; searchTags: string[] }
+  | { type: "pool"; poolId: number }
+  | { type: "poolSearch"; searchTags: string[] }
+  | null;
+
+const parseE621Url: parseE621Url = (urlString) => {
+  try {
+    if (!urlString || typeof urlString !== 'string') return null;
+
+    let formattedUrl = urlString.trim();
+
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+      if (formattedUrl.startsWith('//')) {
+        formattedUrl = `https:${formattedUrl}`;
+      } else {
+        formattedUrl = `https://${formattedUrl}`;
+      }
+    }
+
+    const url = new URL(formattedUrl);
+
+    const hostname = url.hostname.toLowerCase();
+    const isAllowedHost = ['e621.net', 'e926.net'].some(
+      host => hostname === host || hostname === `www.${host}`
+    );
+
+    if (!isAllowedHost) {
+      return null;
+    }
+
+    const getSearchTags = (): string[] => {
+      const tagsParam =
+        url.searchParams.get("q") ||
+        url.searchParams.get("tags") ||
+        url.searchParams.get("search[name_matches]") ||
+        "";
+
+      return tagsParam
+        .trim()
+        .split(/\s+/)
+        .filter((tag) => tag.length > 0);
+    };
+
+    const pathname = url.pathname;
+
+    const postMatch = pathname.match(/^\/posts\/(\d+)$/);
+    if (postMatch) {
+      const tags = getSearchTags()
+      return {
+        type: "post",
+        postId: parseInt(postMatch[1], 10),
+        searchTags: tags.length ? tags : undefined
+      };
+    }
+
+    if (pathname === "/posts" || pathname === "/posts/") {
+      return {
+        type: "postSearch",
+        searchTags: getSearchTags()
+      };
+    }
+
+    const poolMatch = pathname.match(/^\/pools\/(\d+)$/);
+    if (poolMatch) {
+      return {
+        type: "pool",
+        poolId: parseInt(poolMatch[1], 10)
+      };
+    }
+
+    if (pathname === "/pools" || pathname === "/pools/") {
+      return {
+        type: "poolSearch",
+        searchTags: getSearchTags()
+      };
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const copyString = (data: string) => {
+  navigator.clipboard.writeText(data)
+};
+
+const dragItem = (e: React.DragEvent, item: e621Type.DragItemType.defaul, ext?: object) => {
+  if (item.type === "text") { e.dataTransfer.setData("text/plain", item.data); return; };
+  e.dataTransfer.setData(e621Type.DragItemType.appname, JSON.stringify(item));
+
+  let url = "";
+
+  switch (item.type) {
+    case "postSearch": {
+      url = E6Url.search(item.data.searchTags);
+      break;
+    };
+    case "tag": {
+      url = E6Url.search([(item.data.action === "-" ? "-" : "") + item.data.tag]);
+      break;
+    };
+
+    case "post": {
+      url = E6Url.post(item.data.id);
+      break;
+    };
+    case "postId": {
+      url = E6Url.post(item.data);
+      break;
+    };
+    case "postImg": {
+      url = item.data.file.url!;
+      break;
+    };
+
+    case "pool": {
+      url = E6Url.pool(item.data.poolId);
+      break;
+    };
+    case "poolId": {
+      url = E6Url.pool(item.data);
+      break;
+    };
+
+  };
+
+  e.dataTransfer.setData("text/uri-list", url + makeQuery(ext ?? {}))
+  e.dataTransfer.setData("text/plain", url + makeQuery(ext ?? {}));
 }
 
 const cnvFormat = {
   downloads: (post: E621.Post, addDate: number, format: string) => {
     /*
      *
-     * 基本上 能加的東西 都比照 The Wolf's Stash 當然 會有一些額外的東西
-     * 所以一樣的 能打斜綫來區分路徑 就是 不同資料夾
+     * 基本上 能加的東西 都比照 The Wolf's Stash 
+     * 當然 會有一些額外的東西 所以一樣的 能打斜綫來區分路徑 就是 不同資料夾
      *
      * %id%                       - 作品ID
      *
@@ -3864,8 +4161,8 @@ const cnvFormat = {
      * %tags--tag1,tag2%          - 所有標簽 可以自定要排除掉的不想出現在檔案名稱的標簽
      * %tags(,)--tag1,tag2%       - 所有標簽 既自定了分割符 又自定了要排掉的東西
      *
-     * %rating%                   - 評級
-     * %rating(S|Q|E)%            - 評級 但用你自己定義的詞
+     * %rating%                   - 分級
+     * %rating(S|Q|E)%            - 分級 但用你自己定義的詞
      *
      * %score%                    - 作品評分
      * %favs%                     - 收藏數
@@ -3905,15 +4202,25 @@ const cnvFormat = {
     };
 
     const tagReplase = (source: string, name: string, array: string[]) => {
+      const filterArray = (excludeStr: string) => {
+        const excludes = excludeStr.split(",").map(e => e.trim());
+        return array.filter(item => !excludes.includes(item));
+      };
+
       return source
-        .replaceAll(`%${name}%`, array.join("_"))
-        .replaceAll(new RegExp(`%${name}\\((.*)\\)%`, "g"), (_, join: string) => array.join(join))
-        .replaceAll(new RegExp(`%${name}--(.*)%`, "g"), (_, exclude: string) => {
-          return array.filter(e => !exclude.split(",").some(x => e === x)).join("_")
-        })
-        .replaceAll(new RegExp(`%${name}\\((.*)\\)--(.*)%`, "g"), (_, join: string, exclude: string) => {
-          return array.filter(e => !exclude.split(",").some(x => e === x)).join(join)
-        })
+        .replaceAll(
+          new RegExp(`%${name}\\((.*?)\\)--(.*?)%`, "g"),
+          (_, join: string, exclude: string) => filterArray(exclude).join(join)
+        )
+        .replaceAll(
+          new RegExp(`%${name}--(.*?)%`, "g"),
+          (_, exclude: string) => filterArray(exclude).join("_")
+        )
+        .replaceAll(
+          new RegExp(`%${name}\\((.*?)\\)%`, "g"),
+          (_, join: string) => array.join(join)
+        )
+        .replaceAll(`%${name}%`, array.join("_"));
     };
 
     const rep01 = format
@@ -4012,7 +4319,46 @@ const cnvFormat = {
   },
 }
 
+const SEARCH_HISTORY_LIMIT = 100;
+
 const tools = {
+  /** 依查詢詞相關性排序（精確 > 前綴 > 包含 > 其餘），同分再比 post_count */
+  sortTagsByRelevance: (tags: E621.Tag[], query: string): E621.Tag[] => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tags;
+    const rank = (name: string) => {
+      const n = name.toLowerCase();
+      if (n === q) return 0;
+      if (n.startsWith(q)) return 1;
+      if (n.includes(q)) return 2;
+      return 3;
+    };
+    return [...tags].sort((a, b) => {
+      const ra = rank(a.name);
+      const rb = rank(b.name);
+      if (ra !== rb) return ra - rb;
+      return b.post_count - a.post_count;
+    });
+  },
+  /** 依相關性過濾／排列搜尋紀錄；空查詢時回傳原順序（新→舊） */
+  sortHistoryByRelevance: (history: string[], query: string): string[] => {
+    const q = query.trim();
+    if (!q) return history;
+    const fuse = new Fuse(history, {
+      includeScore: true,
+      threshold: 0.4,
+    });
+    const fuzzy = fuse.search(q).map(e => e.item);
+    if (fuzzy.length > 0) return fuzzy;
+    const lower = q.toLowerCase();
+    return history.filter(h => h.toLowerCase().includes(lower));
+  },
+  /** 取輸入中正在編輯的最後一個 token（去掉 -/~ 前綴） */
+  getSuggestToken: (tags: string[]): { raw: string; query: string } => {
+    const raw = tags.length > 0 ? (tags[tags.length - 1] ?? "") : "";
+    const query = raw.replace(/^[-~]+/, "");
+    return { raw, query };
+  },
   applyFiltersAndSort: (currentPosts: E621.Post[], searchFilter?: e621Type.window.dataType.searchFilter) => {
     let result = [...currentPosts];
     if (!searchFilter) return result;
@@ -4458,7 +4804,7 @@ namespace Components {
     onClick?: MouseEventHandler<HTMLButtonElement>,
     actionMenu: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>, post: E621.Post) => void,
     delay?: number,
-    q?: object
+    queryQ?: string
   }
 
   export type Post = {
@@ -4474,98 +4820,106 @@ namespace Components {
 
 }
 
+const Card = React.memo(({ post, onClick, actionMenu, delay, queryQ, event }: Components.Card) => {
+  const totalScore = post.score.total
+  const favIsNav = totalScore === 0 ? null : totalScore < 0 ? "--" : "++"
+  const cachedSrc = Cache.useCachedThumbnail(post);
+  const [suses, setSuses] = useState(false)
+
+  const hoverTips = [
+    `Rating ${post.rating}`,
+    `ID ${post.id}`,
+    `Create at ${post.created_at}`,
+    `Score ${post.score.total}`,
+  ].join("<br/>")
+
+  return <button
+    data-post-id={post.id}
+    onMouseLeave={() => event?.mouseLeave?.(post)}
+    onMouseMove={() => event?.mouseMove?.(post)}
+    className={style["Card"]}
+    key={post.id}
+    onClick={onClick}
+    draggable
+    onDragStart={(e) => {
+      dragItem(e, {
+        type: "post",
+        data: post
+      }, queryQ ? { q: queryQ } : undefined)
+    }}
+    style={{
+      transitionDelay: DELAY_EFFECT(delay + "s")
+    }}
+  >
+    <div className={style["previewImage"]}>
+      <div
+        className={style["vid"]}
+        style={{
+          filter: canBlurContent(post, 30)
+        }}
+      >
+        {post.file.ext === 'webm' || post.file.ext === 'mp4' ? (
+          <video
+            key={cachedSrc}
+            poster={cachedSrc || ""}
+          />
+        ) : (
+          <img
+            src={cachedSrc || ""}
+            alt=""
+            onLoad={() => setSuses(true)}
+            style={{ opacity: suses ? 1 : 0, transition: 'opacity 0.3s' }}
+          />
+        )}
+      </div>
+    </div>
+
+    <div className={style["Info"]}>
+      <div className={style["baseInfo"]}>
+        <div className={style["score"]}>
+          <div className={clsx(style["up"], favIsNav === "++" && style["here"])}>
+            <div className={style["icon"]}>{"+"}</div>
+            <div>{post.score.up}</div>
+          </div>
+
+          <div className={clsx(style["down"], favIsNav === "--" && style["here"])}>
+            <div className={style["icon"]}>{"-"}</div>
+            <div>{Math.abs(post.score.down)}</div>
+          </div>
+
+          <div className={style["fav"]}>
+            <div className={style["icon"]}>{"<3"}</div>
+            <div>{post.fav_count}</div>
+          </div>
+        </div>
+
+        <div className={style["rating"]}>
+          <div>
+            {post.rating.toUpperCase()}
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div className={style["Action"]}>
+      <div className={style["button"]}>
+        <button
+          kiase-style=""
+          onClick={(event) => actionMenu(event, post)}
+          onMouseDown={(event) => actionMenu(event, post)}
+        >{"..."}</button>
+      </div>
+    </div>
+
+    <div className={style["Ext"]}>
+      <div>{post.file.ext.toLocaleUpperCase()}</div>
+    </div>
+  </button >
+});
+
 const Components = {
-  Card: ({ post, onClick, actionMenu, delay, q, event }: Components.Card) => {
-    const totalScore = post.score.total
-    const favIsNav = totalScore === 0 ? null : totalScore < 0 ? "--" : "++"
-    const cachedSrc = Cache.useCachedThumbnail(post);
-    const [suses, setSuses] = useState(false)
-
-    const hoverTips = [
-      `Rating ${post.rating}`,
-      `ID ${post.id}`,
-      `Create at ${post.created_at}`,
-      `Score ${post.score.total}`,
-    ].join("<br/>")
-
-    return <button
-      onMouseLeave={() => event?.mouseLeave?.(post)}
-      onMouseMove={() => event?.mouseMove?.(post)}
-      className={style["Card"]}
-      key={post.id}
-      onClick={onClick}
-      draggable
-      onDragStart={(e) => {
-        dragItem(e, {
-          type: "post",
-          data: post
-        }, q)
-      }}
-      style={{
-        transitionDelay: DELAY_EFFECT(delay + "s")
-      }}
-    >
-      <div className={style["previewImage"]}>
-        <div className={style["vid"]}>
-          {post.file.ext === 'webm' || post.file.ext === 'mp4' ? (
-            <video
-              key={cachedSrc}
-              poster={cachedSrc || ""}
-            />
-          ) : (
-            <img
-              src={cachedSrc || ""}
-              alt=""
-              onLoad={() => setSuses(true)}
-              style={{ opacity: suses ? 1 : 0, transition: 'opacity 0.3s' }}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className={style["Info"]}>
-        <div className={style["baseInfo"]}>
-          <div className={style["score"]}>
-            <div className={clsx(style["up"], favIsNav === "++" ? style["here"] : "")}>
-              <div className={style["icon"]}>{"+"}</div>
-              <div>{post.score.up}</div>
-            </div>
-
-            <div className={clsx(style["down"], favIsNav === "--" ? style["here"] : "")}>
-              <div className={style["icon"]}>{"-"}</div>
-              <div>{Math.abs(post.score.down)}</div>
-            </div>
-
-            <div className={style["fav"]}>
-              <div className={style["icon"]}>{"<3"}</div>
-              <div>{post.fav_count}</div>
-            </div>
-          </div>
-
-          <div className={style["rating"]}>
-            <div>
-              {post.rating.toUpperCase()}
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div className={style["Action"]}>
-        <div className={style["button"]}>
-          <button
-            kiase-style=""
-            onClick={(event) => actionMenu(event, post)}
-            onMouseDown={(event) => actionMenu(event, post)}
-          >···</button>
-        </div>
-      </div>
-
-      <div className={style["Ext"]}>
-        <div>{post.file.ext.toLocaleUpperCase()}</div>
-      </div>
-    </button>
-  },
+  Card,
   Post: ({ postData: post, thisWindow }: Components.Post) => {
     const [start, setStart] = useState<boolean>(false)
     const cachedMainSrc = Cache.useCachedPost(post);
@@ -4620,7 +4974,7 @@ const Components = {
 
     return (<div
       ref={eRef}
-      className={clsx(style["Post"], start ? style["START"] : "")}
+      className={clsx(style["Post"], start && style["START"])}
     >
       <div className={style["Tags"]} >
         {
@@ -4767,7 +5121,6 @@ const Components = {
                           }}
                         >{"-"}</div>
 
-
                         <div
                           className={style["name"]}
                           onClick={() => {
@@ -4827,7 +5180,7 @@ const Components = {
           <button
             kiase-style=""
             onClick={() => {
-              someActions.openWithViewer(post)
+              acts.open.view(post)
             }}
             draggable
             onDragStart={(e) => {
@@ -4838,9 +5191,13 @@ const Components = {
           <button
             kiase-style=""
             onClick={(e) => {
-              someActions.setAsWallpaper(usrIndx, post?.file.url!, post)
+              SetS.wallpaper(usrIndx, post?.file.url!, post)
             }}
             style={{ marginLeft: "auto" }}
+            onContextMenu={e => {
+              e.preventDefault();
+              acts.setting.wallpaper();
+            }}
           >{t("menuButton.SetAsWallpaper")}</button>
 
           <button
@@ -4872,10 +5229,10 @@ const Components = {
                   } else if (parentData.componentType === "pool") {
                     q = `pool:${parentData.customData.data.poolId}`
                   }
-                  open(`https://e621.net/posts/${post?.id}?${makeQuery({ q })}`)
+                  acts.open.browser.post(post?.id, { q })
                 }
               } else if (thisWindow?.customData?.type === "postGetByID") {
-                open(`https://e621.net/posts/${post?.id}`)
+                acts.open.browser.post(post?.id)
               }
             }}
           >{t("menuButton.OpenWithBrowser")}</button>
@@ -4987,6 +5344,8 @@ const Components = {
       setIsActive(false);
     };
 
+    const [preview, setPreview] = useState(true);
+
     return <div className={style["PostViewer"]}>
       {(() => {
         switch (post?.file.ext) {
@@ -4999,6 +5358,9 @@ const Components = {
               className={style["Image"]}
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
+              style={{
+                filter: canBlurContent(post, 50)
+              }}
             >
               <Viewer
                 className={style["Viewer"]}
@@ -5011,12 +5373,19 @@ const Components = {
                 contro={isActive}
               >
                 <div className={style["main"]}>
-                  <img src={main ?? post.file.url ?? ""} loading="lazy" />
+                  <img
+                    src={main ?? post.file.url ?? ""}
+                    loading="lazy"
+                    onLoad={_ => setPreview(false)}
+                  />
                 </div>
 
-                <div className={style["prev"]}>
-                  <img src={prev ?? post.preview.url ?? ""} loading="lazy" />
-                </div>
+                {preview && <div className={style["prev"]}>
+                  <img
+                    src={prev ?? post.preview.url ?? ""}
+                    loading="lazy"
+                  />
+                </div>}
               </Viewer>
             </div>
 
@@ -5280,14 +5649,17 @@ const Components = {
 }
 
 const NODATA = {
-  Fetching: function () {
+  _Fetching: function (loading: boolean) {
     const Cers = (<div className={style["Cers"]}>
       {
-        [
+        (loading ? [
+          [100, 8, 3],
+          [55, 6, 1],
+        ] : [
           [400, 15, 6],
           [250, 12, 4],
           [100, 10, 2],
-        ].map((e, i) => <div className={style["cer"]} key={i}>
+        ]).map((e, i) => <div className={style["cer"]} key={i}>
           <div className={style["Scale"]}
             style={{
               transitionDelay: DELAY_EFFECT(`${i * .2}s`)
@@ -5301,10 +5673,12 @@ const NODATA = {
             </div>
           </div>
         </div>)}
-
     </div>)
 
-    return (<div className={style["Fetching"]}>
+    return (<div className={clsx(
+      style["Fetching"],
+      loading && style["Loading"]
+    )}>
       {Cers}
       <div className={style["Line"]}>
         {Cers}
@@ -5314,6 +5688,8 @@ const NODATA = {
       </div>
     </div>)
   },
+  Fetching: () => NODATA._Fetching(false),
+  Loading: () => NODATA._Fetching(true),
   None: function ({ WithFilter }: { WithFilter?: boolean }) {
     return (<div className={style["None"]}>
       <div className={style["Text"]}>
@@ -5470,7 +5846,7 @@ const windowActionList: (win?: WindowInstance<e621Type.defaul>) => MenuAction.It
   return [
     ...ReactList.map(e => ([t("menuButton.ResetRect").replace("$1", e[0]), () => setRct(e[0], e[1])])),
     [t("menuButton.Minimize"), () => win?.minimize()],
-    [t("menuButton.Close"), () => win?.close()]
+    [t("menuButton.Close"), () => win?.close()],
   ].map(e => ({
     name: e[0],
     action: e[1]
@@ -5669,12 +6045,17 @@ namespace searchWindow {
     const [searchFilter, setSearchFilter] = useState<e621Type.window.dataType.searchFilter>(savedData?.searchFilter ?? nowSetting.search.defaultSearchFilter);
     const [filterPanel, setFilterPanel] = useState<boolean>(false);
 
+    /* 搜尋紀錄 / 自動選字 —— UI 自行接這些 state */
+    const [searchHistory, setSearchHistory] = useState<string[]>([]);
+    const [historySuggestions, setHistorySuggestions] = useState<string[]>([]);
+    const [tagSuggestions, setTagSuggestions] = useState<E621.Tag[]>([]);
+    const [suggestLoading, setSuggestLoading] = useState(false);
+    const [suggestToken, setSuggestToken] = useState("");
+
     const [poolIdInput, setPoolIdInput] = useState<string | number>(mode === "pool" ? ((savedData as e621Type.window.dataType.pool)?.poolId || id || "") : "");
     const [poolId, setPoolId] = useState<number>(mode === "pool" ? ((savedData as e621Type.window.dataType.pool)?.poolId || Number(id) || 0) : 0);
     const [poolInfo, setPoolInfo] = useState<E621.Pool | undefined>(mode === "pool" ? (savedData as e621Type.window.dataType.pool)?.poolInfo : undefined);
     const [fetchError, setFetchError] = useState<string | null>(null);
-
-    const [peekPre, setPeekPre] = useState<E621.Post | undefined>();
 
     const [fetchId, setFetchId] = useState<number>(0);
     const fetchIdRef = useRef<number>(0);
@@ -5687,13 +6068,126 @@ namespace searchWindow {
     const currentPosts = useMemo(() => postsCache[page] || [], [postsCache, page]);
     const processedPosts = useMemo(() => tools.applyFiltersAndSort(currentPosts, searchFilter), [currentPosts, searchFilter]);
 
+    const currentCustomData = useMemo<e621Type.defaul>(() => {
+      if (mode === "postSearch") {
+        return {
+          type: "postSearch",
+          data: {
+            nowPage: page,
+            pageCache: postsCache,
+            searchTags: searchTags,
+            searchFilter: searchFilter,
+          }
+        };
+      } else {
+        return {
+          type: "pool",
+          data: {
+            poolId: poolId,
+            poolInfo: poolInfo,
+            nowPage: page,
+            pageCache: postsCache,
+            searchFilter: searchFilter,
+          }
+        };
+      }
+    }, [mode, page, postsCache, searchTags, searchFilter, poolId, poolInfo]);
+
+    const peekPreRef = useRef<E621.Post | undefined>(undefined);
+    const processedPostsRef = useRef(processedPosts);
+    processedPostsRef.current = processedPosts;
+
+    const listContextRef = useRef({
+      id,
+      mode,
+      page,
+      postsCache,
+      searchTags,
+      searchFilter,
+      poolId,
+      poolInfo,
+      windowID,
+      thisWindow,
+    });
+    listContextRef.current = {
+      id,
+      mode,
+      page,
+      postsCache,
+      searchTags,
+      searchFilter,
+      poolId,
+      poolInfo,
+      windowID,
+      thisWindow,
+    };
+
+    const cardEvent = useMemo(() => ({
+      mouseMove(p: E621.Post) {
+        peekPreRef.current = p;
+      },
+      mouseLeave() {
+        peekPreRef.current = undefined;
+      },
+    }), []);
+
+    const searchQuery = mode === "postSearch" ? searchTags.join(" ") : `pool:${poolId}`;
+
+    const handleCardClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+      const postId = Number(event.currentTarget.dataset.postId);
+      const post = processedPostsRef.current.find(p => p.id === postId);
+      if (!post) return;
+
+      const ctx = listContextRef.current;
+      const winID = `post-${ctx.id}`;
+      const children = <windowsType.post key={post.id} id={ctx.id} />;
+      const customData: e621Type.window.post = {
+        type: "post",
+        data: {
+          postId: post.id, cachedPost: post,
+          parentData: {
+            windowID: ctx.windowID,
+            title: ctx.thisWindow?.title!,
+            componentType: ctx.mode,
+            rect: ctx.thisWindow?.rect!,
+            customData:
+              ctx.mode === "postSearch" ? {
+                type: ctx.mode,
+                data: {
+                  nowPage: ctx.page,
+                  pageCache: ctx.postsCache,
+                  searchTags: ctx.searchTags,
+                  searchFilter: ctx.searchFilter,
+                }
+              } :
+                {
+                  type: ctx.mode,
+                  data: {
+                    poolId: ctx.poolId,
+                    poolInfo: ctx.poolInfo,
+                    nowPage: ctx.page,
+                    pageCache: ctx.postsCache,
+                    searchFilter: ctx.searchFilter,
+                  }
+                } as any
+          }
+        }
+      }
+      if (!wmRef.current?.hasWindowID(winID)) {
+        wmRef.current?.createWindow({ id: winID, children, customData })
+      } else {
+        wmRef.current.updateWindow(winID, { children, customData });
+        wmRef.current.bringToFront(winID);
+      }
+    }, []);
+
     useEffect(() => {
       if (mode === "pool" && poolId !== 0 && (!poolInfo || poolInfo.id !== poolId)) {
         if (OFFLINE_MODE) {
           return;
         }
 
-        LABS_E621_API.pools.get({ id: poolId }).then(info => {
+        LABS_E621_API.pools.get({ id: poolId }, nativeFetch()).then(info => {
           if (info) {
             setPoolInfo(info as any);
             if (nowSetting.cache.enable.pool && nowSetting.cache.enable.global) {
@@ -5710,8 +6204,81 @@ namespace searchWindow {
       postsCacheRef.current = postsCache;
     }, [postsCache]);
 
+    useEffect(() => {
+      if (mode !== "postSearch") return;
+
+      let cancelled = false;
+      (async () => {
+        try {
+          const hist = await WSA.userHistory(usrIndx, "search");
+          const list = (await hist.get()) as string[];
+          if (!cancelled) setSearchHistory(Array.isArray(list) ? list : []);
+        } catch (err) {
+          console.error(`[searchHistory] load failed:`, err);
+        }
+      })();
+
+      const onHist = (e: WSAction.WorkSpaceEventMap["user:historySet"]) => {
+        if (e.detail.userId === usrIndx && e.detail.key === "search") {
+          setSearchHistory(Array.isArray(e.detail.value) ? e.detail.value as string[] : []);
+        }
+      };
+      WSA.addEventListener("user:historySet", onHist);
+      return () => {
+        cancelled = true;
+        WSA.removeEventListener("user:historySet", onHist);
+      };
+    }, [mode]);
+
+    useEffect(() => {
+      if (mode !== "postSearch") {
+        setHistorySuggestions([]);
+        setTagSuggestions([]);
+        setSuggestToken("");
+        setSuggestLoading(false);
+        return;
+      }
+
+      const fullQuery = searchTagsInput.join(" ").trim();
+      setHistorySuggestions(tools.sortHistoryByRelevance(searchHistory, fullQuery));
+
+      const { query } = tools.getSuggestToken(searchTagsInput);
+      setSuggestToken(query);
+
+      if (!query || query.includes(":") || OFFLINE_MODE) {
+        setTagSuggestions([]);
+        setSuggestLoading(false);
+        return;
+      }
+
+      let cancelled = false;
+      setSuggestLoading(true);
+      const timer = setTimeout(async () => {
+        try {
+          const tags = await LABS_E621_API.tags.nameMatch({
+            query,
+            limit: 20,
+            user: E621_AUTH(),
+          }, nativeFetch());
+          if (!cancelled) setTagSuggestions(tools.sortTagsByRelevance(tags, query));
+        } catch (err) {
+          console.error(`[tagSuggestions] fetch failed:`, err);
+          if (!cancelled) setTagSuggestions([]);
+        } finally {
+          if (!cancelled) setSuggestLoading(false);
+        }
+      }, 250);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }, [mode, searchTagsInput, searchHistory]);
+
     const fetchPageData = useCallback(async (targetPage: number, currentFetchId: number) => {
       if (mode === "pool" && !poolId) return false;
+
+      if (postsCacheRef.current[targetPage] !== undefined) return false;
 
       const apiPage = toApiPage(targetPage);
 
@@ -5748,7 +6315,7 @@ namespace searchWindow {
               page: apiPage,
               limit: 300,
               user: E621_AUTH()
-            });
+            }, nativeFetch());
 
             if (currentFetchId === fetchIdRef.current) {
               const shouldSaveCache = mode === "pool"
@@ -5848,24 +6415,13 @@ namespace searchWindow {
     }, [windowID, mode]);
 
     useEffect(() => {
-      if (thisWindow?.customData?.type !== mode) return;
+      if (!thisWindow) return;
 
-      let newData: any = { nowPage: page, pageCache: postsCache, searchFilter };
-
-      const offlineSuffix = isOfflineMode ? " { OFFLINE DB }" : "";
-
-      if (mode === "postSearch" && thisWindow.customData.type === "postSearch") {
-        newData = { ...newData, searchTags };
-        thisWindow.setTitle(`${t("windowsType.postSearch")} [ ${searchTags.length === 0 ? t("windowsType.postSearch.title.noTags") : searchTags.join(",")} ]${offlineSuffix}`);
-      } else {
-        newData = { ...newData, poolId, poolInfo };
-        if (poolInfo) thisWindow.setTitle(`${t("windowsType.pool")} : ${poolInfo.name.replace(/_/g, " ")} [Page ${page}]${offlineSuffix}`);
-        else if (poolId) thisWindow.setTitle(`${t("windowsType.pool")} : ${poolId} [ Page : ${page} ]${offlineSuffix}`);
-        else thisWindow.setTitle(`${t("windowsType.pool")}${offlineSuffix}${offlineSuffix}`);
-      }
-
-      if (JSON.stringify(thisWindow.customData.data) !== JSON.stringify(newData)) {
-        thisWindow.setData({ type: mode, data: newData });
+      thisWindow.setTitle(getWindowTitle(currentCustomData, { isOfflineMode }));
+      if (thisWindow.customData?.type !== mode) return;
+      if (currentCustomData.type !== mode) return;
+      if (JSON.stringify(thisWindow.customData?.data) !== JSON.stringify(currentCustomData.data)) {
+        thisWindow.setData(currentCustomData);
 
         const wm = wmRef.current;
         if (wm) {
@@ -5873,7 +6429,7 @@ namespace searchWindow {
             const childWin = wm.getWindow(winInfo.id);
             if (childWin?.customData?.type === "post" && childWin.customData.data.parentData?.windowID === thisWindow.id) {
               const childData = childWin.customData.data;
-              const newParentData = { ...childData.parentData, customData: { type: mode, data: newData } };
+              const newParentData = { ...childData.parentData, customData: currentCustomData };
               if (JSON.stringify(childData.parentData) !== JSON.stringify(newParentData)) {
                 childWin.setData({ type: "post", data: { ...childData, parentData: newParentData } as any });
                 window.dispatchEvent(new CustomEvent(`SYNC_PARENT_DATA_${childWin.id}`, { detail: newParentData }));
@@ -5882,51 +6438,68 @@ namespace searchWindow {
           });
         }
       }
-    }, [page, postsCache, searchTags, searchFilter, poolId, poolInfo, mode, isOfflineMode]);
+    }, [currentCustomData, isOfflineMode, thisWindow]);
+
+    const pushSearchHistory = useCallback(async (tags: string[]) => {
+      const query = tags.filter(Boolean).join(" ").trim();
+      if (!query || !usrIndx) return;
+      try {
+        const hist = await WSA.userHistory(usrIndx, "search");
+        const prev = (await hist.get()) as string[];
+        const list = Array.isArray(prev) ? prev : [];
+        const next = [query, ...list.filter(q => q !== query)].slice(0, SEARCH_HISTORY_LIMIT);
+        await hist.set(next);
+      } catch (err) {
+        console.error(`[searchHistory] save failed:`, err);
+      }
+    }, []);
 
     const refreshSearch = useCallback((newVal?: any) => {
       setFetchError(null);
-      setIsOfflineMode(false); // 重製時還原線上模式
+      setIsOfflineMode(false);
       setPostsCache({});
       postsCacheRef.current = {};
       setPage(1);
       fetchingPages.current.clear();
       setFetchId(id => id + 1);
-      if (mode === "postSearch" && newVal) setSearchTags(newVal);
+      if (mode === "postSearch" && newVal) {
+        setSearchTags(newVal);
+        void pushSearchHistory(newVal);
+      }
       if (mode === "pool" && newVal !== undefined) {
         const parsedId = Number(newVal) || 0;
         setPoolId(parsedId);
         if (parsedId !== poolId) setPoolInfo(undefined);
       }
-    }, [mode, poolId]);
+    }, [mode, poolId, pushSearchHistory]);
 
-    const peekPreKeyDown = useRef(false)
+    const peekPreKeyDown = useRef(false);
 
     useEffect(() => {
-      let isdown = peekPreKeyDown.current
+      let isdown = peekPreKeyDown.current;
 
       const display = () => {
-        if (!peekPre) return;
+        if (!peekPreRef.current) return;
         createWindow(wmRef, {
           type: "preview",
-          data: peekPre
-        })
-      }
+          data: peekPreRef.current
+        });
+      };
 
       const keydown = (e: KeyboardEvent) => {
         if (disableWindowKeyEvent) return;
         if (isdown) return;
         if (e.code === "Space") {
-          isdown = true
-          display()
+          isdown = true;
+          display();
         }
-      }
+      };
 
       const keyup = (e: KeyboardEvent) => {
         if (e.code === "Space") {
-          isdown = false
+          isdown = false;
         }
-      }
+      };
 
       document.addEventListener("keydown", keydown);
       document.addEventListener("keyup", keyup);
@@ -5934,13 +6507,12 @@ namespace searchWindow {
       return () => {
         document.removeEventListener("keydown", keydown);
         document.removeEventListener("keyup", keyup);
-      }
-    }, [peekPre])
+      };
+    }, []);
 
     useEffect(() => {
       const keydown = (e: KeyboardEvent) => {
         if (disableWindowKeyEvent) return;
-        if (!wmRef.current?.getWindow(windowID)?.isFocused) return;
         if (e.altKey) return;
 
         if (e.code === "Escape") {
@@ -6013,7 +6585,7 @@ namespace searchWindow {
         if (!touchArea) return;
         startPointX = e.touches[0].clientX;
         startPointY = e.touches[0].clientY;
-      }
+      };
       const onTouchMove = (e: TouchEvent) => {
         if (!touchArea) return;
         x = startPointX - e.touches[0].clientX;
@@ -6021,7 +6593,7 @@ namespace searchWindow {
         if (status === "X") e.preventDefault();
         if (status === "Y") { x = 0; return; }
 
-        const transform = () => { touchArea.style.transform = `translateX(${-1 * (x / 10)}px)` }
+        const transform = () => { touchArea.style.transform = `translateX(${-1 * (x / 10)}px)` };
         if (x > offset || (x < -offset && page > 1)) {
           touchArea.style.opacity = ".5"; transform();
         } else {
@@ -6030,7 +6602,7 @@ namespace searchWindow {
         if (status !== "NONE") return;
         if (x > statusOffset || x < -statusOffset) status = "X";
         if (y > statusOffset || y < -statusOffset) status = "Y";
-      }
+      };
       const onTouchEnd = () => {
         if (!touchArea) return;
         startPointX = 0;
@@ -6038,50 +6610,47 @@ namespace searchWindow {
         else if (x < -offset) { setPage(e => e > 1 ? e - 1 : 1); void touchArea.clientHeight; }
         touchArea.style.transform = ""; touchArea.style.opacity = "";
         status = "NONE";
-      }
+      };
 
-      touchArea?.addEventListener("touchstart", onTouchStart)
-      touchArea?.addEventListener("touchmove", onTouchMove)
-      touchArea?.addEventListener("touchend", onTouchEnd)
+      touchArea?.addEventListener("touchstart", onTouchStart);
+      touchArea?.addEventListener("touchmove", onTouchMove);
+      touchArea?.addEventListener("touchend", onTouchEnd);
       return () => {
-        touchArea?.removeEventListener("touchstart", onTouchStart)
-        touchArea?.removeEventListener("touchmove", onTouchMove)
-        touchArea?.removeEventListener("touchend", onTouchEnd)
-      }
+        touchArea?.removeEventListener("touchstart", onTouchStart);
+        touchArea?.removeEventListener("touchmove", onTouchMove);
+        touchArea?.removeEventListener("touchend", onTouchEnd);
+      };
     }, [jupToPage, page, scrollPage.current]);
 
     useEffect(() => {
       if (scrollPage.current) scrollPage.current.scrollTo({ top: 0 });
     }, [page]);
 
-
     const showLoading = mode === "pool" ? (poolId !== 0 && !postsCache[page]) : !postsCache[page];
 
-    const actionMenu = (event: React.MouseEvent<HTMLButtonElement, MouseEvent>, post: E621.Post) => {
+    const actionMenu = useCallback((event: React.MouseEvent<HTMLButtonElement, MouseEvent>, post: E621.Post) => {
       event.stopPropagation(); event.preventDefault();
       const btnRect = event.currentTarget.getBoundingClientRect();
       const query = mode === "postSearch" ? searchTags.join(" ") : `pool:${poolId}`;
       MenuAction.showMenu(menuBtn.post(post.id, post, { q: query }), [btnRect.bottom, btnRect.left]);
-    }
+    }, [mode, searchTags, poolId]);
 
-    const generateMenuList = () => {
+    const generateMenuList = useMemo(() => {
+
+      if (currentCustomData.type !== mode) return [];
+
       let list: MenuButtonType[] = [
         windowAction(windowID,
           mode === "postSearch" ? [{
             name: t("menuButton.Clone"),
             action() {
-              createWindow(wmRef, thisWindow?.customData!),
-                thisWindow?.customData?.type === mode ? {
-                  type: mode,
-                  thisWindow,
-                  data: thisWindow.customData.data
-                } as any : undefined
+              createWindow(wmRef, cloneDeep(currentCustomData));
             },
-            dragItem: thisWindow?.customData?.type === mode ? {
+            dragItem: {
               type: mode,
               thisWindow,
-              data: thisWindow.customData.data
-            } as any : undefined
+              data: currentCustomData.data
+            } as any
           }] : []
         ),
         [
@@ -6099,17 +6668,13 @@ namespace searchWindow {
             {
               name: t("menuButton.SaveToTmp"),
               action() {
-                someActions.saveToTmp(usrIndx, cloneDeep(wmRef.current!.getWindow(thisWindow!.id!)!.customData!), thisWindow!.title, windowID),
-                  thisWindow?.customData?.type === mode ? {
-                    type: mode,
-                    thisWindow,
-                    data: thisWindow.customData.data
-                  } : undefined
+                acts.saveToTmp(usrIndx, cloneDeep(currentCustomData), windowID);
               },
-              dragItem: thisWindow?.customData?.type === mode ? {
+              onContextMenu() { acts.windows.tempList() },
+              dragItem: {
                 type: mode,
-                data: thisWindow.customData.data
-              } as any : undefined,
+                data: currentCustomData.data
+              } as any,
             },
             mode === "pool" ? {
               name: t("menuButton.OpenWithPostSearch"),
@@ -6122,7 +6687,7 @@ namespace searchWindow {
                     searchTags: ["pool:" + poolId],
                     searchFilter,
                   }
-                })
+                });
               },
               dragItem: {
                 type: "postSearch",
@@ -6140,12 +6705,12 @@ namespace searchWindow {
         ]
       ];
       return list;
-    };
+    }, [mode, windowID, page, postsCache, searchFilter, poolId, currentPosts, currentCustomData, refreshSearch, thisWindow]);
 
     return (
       <WINDOW_FRAME
         className={style[mode]}
-        menulist={generateMenuList()}
+        menulist={generateMenuList}
         onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
         onDrop={e => {
           if (!e.dataTransfer) return;
@@ -6154,28 +6719,28 @@ namespace searchWindow {
             const item: e621Type.DragItemType.defaul = JSON.parse(itemdata);
             if (mode === "postSearch" && item.type === "tag") {
               let newTags = [...searchTagsInput];
-              const { data } = item
+              const { data } = item;
               switch (data.action) {
                 case "+": {
                   if (newTags.some(e => e === "-" + data.tag)) {
-                    newTags = newTags.filter(e => e !== "-" + data.tag)
+                    newTags = newTags.filter(e => e !== "-" + data.tag);
                   } else if (!newTags.some(e => e === data.tag)) {
-                    newTags.push(data.tag)
+                    newTags.push(data.tag);
                   }
-                  StopEvent(e)
+                  StopEvent(e);
                   break;
                 }
                 case "-": {
                   if (newTags.some(e => e === data.tag)) {
-                    newTags = newTags.filter(e => e !== data.tag)
+                    newTags = newTags.filter(e => e !== data.tag);
                   } else if (!newTags.some(e => e === "-" + data.tag)) {
-                    newTags.push("-" + data.tag)
+                    newTags.push("-" + data.tag);
                   }
-                  StopEvent(e)
+                  StopEvent(e);
                   break;
                 }
               }
-              setSearchTagsInput(newTags)
+              setSearchTagsInput(newTags);
             }
           }
         }}
@@ -6194,13 +6759,33 @@ namespace searchWindow {
         <div className={style["TagEditor"]} >
           <div className={style["InnerFrame"]}>
             {mode === "postSearch" ? (
-              <input type="text" value={searchTagsInput.join(" ")} onInput={(e) => setSearchTagsInput(e.currentTarget.value.split(" "))}
-                onKeyDown={(e) => { if ((e.key === "Enter" || e.code === "NumpadEnter") && searchTagsInput.join(" ") !== searchTags.join(" ")) refreshSearch(searchTagsInput); }}
-                onFocus={() => setFocuOnIt(true)} onBlur={() => setFocuOnIt(false)} />
+              <input
+                type="text"
+                value={searchTagsInput.join(" ")}
+                placeholder={t("windowsType.postSearch.placeholder")}
+                onInput={(e) => setSearchTagsInput(e.currentTarget.value.split(" "))}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.code === "NumpadEnter") && searchTagsInput.join(" ") !== searchTags.join(" ")) {
+                    refreshSearch(searchTagsInput)
+                    e.currentTarget.blur();
+                  };
+                }}
+                onFocus={() => setFocuOnIt(true)}
+                onBlur={() => setFocuOnIt(false)} />
             ) : (
-              <input type="text" value={poolIdInput} placeholder="Input Pool ID..." onInput={(e) => setPoolIdInput(e.currentTarget.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.code === "NumpadEnter") refreshSearch(Number(poolIdInput)); }}
-                onFocus={() => setFocuOnIt(true)} onBlur={() => setFocuOnIt(false)} />
+              <input
+                type="text"
+                value={poolIdInput}
+                placeholder={t("windowsType.postSearch.placeholder.pool")}
+                onInput={(e) => setPoolIdInput(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.code === "NumpadEnter") {
+                    refreshSearch(Number(poolIdInput))
+                    e.currentTarget.blur();
+                  };
+                }}
+                onFocus={() => setFocuOnIt(true)}
+                onBlur={() => setFocuOnIt(false)} />
             )}
             <button className={clsx(filterPanel && style["activ"])} onClick={() => setFilterPanel(e => !e)}>
               <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"><path d="M440-160q-17 0-28.5-11.5T400-200v-240L168-736q-15-20-4.5-42t36.5-22h560q26 0 36.5 22t-4.5 42L560-440v240q0 17-11.5 28.5T520-160h-80Zm40-308 198-252H282l198 252Zm0 0Z" /></svg>
@@ -6306,60 +6891,13 @@ namespace searchWindow {
                 <div className={style["InnerFrame"]} ref={scrollPage} onKeyDown={e => { if (e.code === "Space") e.preventDefault(); }}>
                   {processedPosts.map((post, indx) => (
                     <Components.Card
-                      event={{
-                        mouseMove(p) {
-                          setPeekPre(p)
-                        },
-                        mouseLeave() {
-                          setPeekPre(undefined)
-                        },
-                      }}
+                      event={cardEvent}
                       actionMenu={actionMenu}
                       key={post.id}
                       post={post}
                       delay={DELAY_EFFECT(indx * .005)}
-                      q={{ q: mode === "postSearch" ? searchTags.join(" ") : `pool:${poolId}` }}
-                      onClick={() => {
-                        const winID = `post-${id}`;
-                        const children = <windowsType.post key={post.id} id={id} />;
-                        const customData: e621Type.window.post = {
-                          type: "post",
-                          data: {
-                            postId: post.id, cachedPost: post,
-                            parentData: {
-                              windowID,
-                              title: thisWindow?.title!,
-                              componentType: mode,
-                              rect: thisWindow?.rect!,
-                              customData:
-                                mode === "postSearch" ? {
-                                  type: mode,
-                                  data: {
-                                    nowPage: page,
-                                    pageCache: postsCache,
-                                    searchTags,
-                                    searchFilter
-                                  }
-                                } :
-                                  {
-                                    type: mode,
-                                    data: {
-                                      poolId,
-                                      poolInfo,
-                                      nowPage: page,
-                                      pageCache: postsCache
-                                    }
-                                  } as any
-                            }
-                          }
-                        }
-                        if (!wmRef.current?.hasWindowID(winID)) {
-                          wmRef.current?.createWindow({ id: winID, children, customData })
-                        } else {
-                          wmRef.current.updateWindow(winID, { children, customData });
-                          wmRef.current.bringToFront(winID);
-                        }
-                      }}
+                      queryQ={searchQuery}
+                      onClick={handleCardClick}
                     />
                   ))}
                 </div>
@@ -6370,16 +6908,15 @@ namespace searchWindow {
       </WINDOW_FRAME>
     );
   };
-
 }
 
 type ViewerWindowProps = {
   winID: string,
   post: E621.Post,
-  contro?: boolean
+  notViewer?: boolean
 }
 
-const ViewerWindow = ({ winID, post, contro }: ViewerWindowProps) => {
+const ViewerWindow = ({ winID, post, notViewer }: ViewerWindowProps) => {
   const cachedMainSrc = Cache.useCachedPost(post);
   const cachedPrevSrc = Cache.useCachedThumbnail(post);
 
@@ -6405,7 +6942,21 @@ const ViewerWindow = ({ winID, post, contro }: ViewerWindowProps) => {
         },
       ]), [
         t("menuButton.top.Other"),
-        menuBtn.post(post.id, post, {}, "viewer"),
+        (notViewer ? [
+          {
+            name: t("menuButton.OpenWithGetByID"),
+            action() {
+              if (post)
+                acts.open.getByID(post)
+            },
+            dragItem: {
+              type: "post",
+              data: post!
+            },
+            active: !!post
+          },
+          ...menuBtn.post(post.id, post, {}, "id")
+        ] : menuBtn.post(post.id, post, {}, "viewer")),
       ]
     ]}
   >
@@ -6446,7 +6997,7 @@ const windowsType = {
         const result = await LABS_E621_API.posts.get({
           id: postId,
           user: E621_AUTH()
-        });
+        }, nativeFetch());
         if (result) {
           setPostData(result);
           setFetchError(null);
@@ -6533,7 +7084,7 @@ const windowsType = {
                 page: targetPage,
                 limit: 300,
                 user: E621_AUTH()
-              });
+              }, nativeFetch());
               currentCache[targetPage] = targetPosts;
             } catch (e) {
               console.error(`第 ${targetPage} 頁抓取失敗: ${e}`);
@@ -6642,9 +7193,15 @@ const windowsType = {
         }
       });
       if (postData)
-        thisWindow?.setTitle(`${t("windowsType.post")} / ${postData.tags.artist.join(",")} - ${postData.id}`)
+        thisWindow?.setTitle(getWindowTitle({
+          type: "post",
+          data: { postId, cachedPost: postData, parentData: parentDataState }
+        }))
       else
-        thisWindow?.setTitle(`${t("windowsType.post")} / ${postId}`)
+        thisWindow?.setTitle(getWindowTitle({
+          type: "post",
+          data: { postId, parentData: parentDataState }
+        }))
     }, [postData, postId, parentDataState]);
 
     return (
@@ -6765,7 +7322,7 @@ const windowsType = {
         const result = await LABS_E621_API.posts.get({
           id: targetId,
           user: E621_AUTH()
-        });
+        }, nativeFetch());
 
         if (result) {
           setFetchedPost(result);
@@ -6810,7 +7367,10 @@ const windowsType = {
           status: status
         }
       });
-      thisWindow?.setTitle(`${t("windowsType.postGetByID")} [ ${inputId} ]`);
+      thisWindow?.setTitle(getWindowTitle({
+        type: "postGetByID",
+        data: { currentId: inputId, fetchedPost, status }
+      }));
     }, [inputId, fetchedPost, status]);
 
     useEffect(() => {
@@ -6877,7 +7437,7 @@ const windowsType = {
     const [fetchedPost] = useState<E621.Post>(savedData!);
 
     useEffect(() => {
-      thisWindow?.setTitle(`${t("windowsType.viewer")} [ ${fetchedPost.id} ]`)
+      thisWindow?.setTitle(getWindowTitle({ type: "viewer", data: fetchedPost }))
     }, [])
 
     return (<ViewerWindow post={fetchedPost} winID={windowID} />);
@@ -6893,7 +7453,7 @@ const windowsType = {
     const [fetchedPost] = useState<E621.Post>(savedData!);
 
     useEffect(() => {
-      thisWindow?.setTitle(`${t("windowsType.preview")} [ ${fetchedPost.id} ]`)
+      thisWindow?.setTitle(getWindowTitle({ type: "preview", data: fetchedPost }))
     }, [])
 
     useEffect(() => {
@@ -6920,7 +7480,7 @@ const windowsType = {
       }
     }, [])
 
-    return (<ViewerWindow post={fetchedPost} winID="peek-preview" contro={false} />);
+    return (<ViewerWindow post={fetchedPost} winID="peek-preview" notViewer={true} />);
 
   },
   setting: function () {
@@ -6954,9 +7514,7 @@ const windowsType = {
         data: nowPage
       });
 
-      thisWindow?.setTitle(nowPage === "NONE"
-        ? t("windowsType.setting")
-        : `${t("windowsType.setting")} / ${tCategory(nowPage.categorie)} > ${tPage(nowPage.categorie, nowPage.pages)}`);
+      thisWindow?.setTitle(getWindowTitle({ type: "setting", data: nowPage }));
     }, [nowPage]);
 
     type PageBtn = {
@@ -7337,11 +7895,11 @@ const windowsType = {
                 useEffect(() => { setnowUserName(nowSaveInfo.user.name) }, [nowSaveInfo.user.name])
 
                 const setPass = useCallback((pass?: string) => {
-                  someActions.setAppState(e => {
+                  SetS.appState(e => {
                     e.rememberPassword = pass || ""
                     return e
                   })
-                  someActions.setUsrInfo(usrIndx, e => {
+                  SetS.usrInfo(usrIndx, e => {
                     e.user.passKey = pass
                     return e
                   })
@@ -7402,7 +7960,7 @@ const windowsType = {
                       { name: t("setting.Account.local.changeUserName.no"), value: "no", key: "Escape" },
                     ], (e) => {
                       if (e === "yes") {
-                        someActions.setUsrInfo(usrIndx, e => {
+                        SetS.usrInfo(usrIndx, e => {
                           e.user.name = currentName
                           return e
                         })
@@ -7569,7 +8127,7 @@ const windowsType = {
                             const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
                             const { data, type } = item
                             if (type === "post" || type === "postImg") {
-                              someActions.setAvatar(usrIndx, data.file.url!, data)
+                              SetS.avatar(usrIndx, data.file.url!, data)
                               setAvaCfg({
                                 url: data.file.url!,
                                 positionX: 50,
@@ -7665,14 +8223,14 @@ const windowsType = {
                       </div>
 
                       <button kiase-sty="" onClick={() => {
-                        someActions.setUsrInfo(usrIndx, e => {
+                        SetS.usrInfo(usrIndx, e => {
                           e.user.avatar = avaCfg;
                           return e;
                         });
                       }}>{t("setting.Account.avatar.apply")}</button>
                       {avaCfg.fromPost && <button
                         kiase-sty=""
-                        onClick={() => someActions.openWithGetByID(avaCfg.fromPost!)}
+                        onClick={() => acts.open.getByID(avaCfg.fromPost!)}
                         draggable={true}
                         onDragStart={(e) => {
                           dragItem(e, {
@@ -7706,7 +8264,7 @@ const windowsType = {
                       { name: t("setting.Account.e621.msg.no"), value: "" },
                     ], (e) => {
                       if (e === "yes") {
-                        someActions.setUsrInfo(usrIndx, e => {
+                        SetS.usrInfo(usrIndx, e => {
                           e.user.e621 = { key: currentKey, name: currentName }
                           return e
                         })
@@ -7757,10 +8315,10 @@ const windowsType = {
                   </div>
                   <div className={style["btns"]}>
                     {list.map(l => <button
-                      className={nowSetting.lang === l.id ? style["activ"] : ""}
+                      className={clsx(nowSetting.lang === l.id && style["activ"])}
                       onMouseMove={() => setNotic(l.notic)}
                       onMouseLeave={() => setNotic("...")}
-                      onClick={() => someActions.setSetting(usrIndx, e => {
+                      onClick={() => SetS.setting(usrIndx, e => {
                         e.lang = l.id
                         return e
                       })}
@@ -8014,7 +8572,6 @@ const windowsType = {
               case "general": {
                 const scaleGear = [50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 
-                const timeCode = fuckingState.clock()
                 const [format, setFormat] = useState<string[]>(nowSetting.appearance.clockFormat)
 
                 return <>
@@ -8025,7 +8582,7 @@ const windowsType = {
                       key={i}
                       kiase-sty=""
                       btn-activ={`${nowSetting.appearance.scale === scale}`}
-                      onClick={() => someActions.setSetting(usrIndx, e => {
+                      onClick={() => SetS.setting(usrIndx, e => {
                         e.appearance.scale = scale
                         return e
                       })}
@@ -8041,7 +8598,7 @@ const windowsType = {
                   <KiloDown.Thirdtitle>{t("setting.Appearance.general.clockFormat.info")}</KiloDown.Thirdtitle>
                   <KiloDown.SmallText>{t("setting.Appearance.general.clockFormat.info.fun").map((e: string) => <>{e}<br /></>)}</KiloDown.SmallText>
                   <KiloDown.Thirdtitle>{t("setting.Appearance.general.clockFormat.preview")}</KiloDown.Thirdtitle>
-                  {format.map((e, i) => <div key={i} mid-txt="">{cnvFormat.clock(timeCode, e)}</div>)}
+                  <ClockPreview formats={format} />
                   <br />
                   <div small-txt="">{
                     t("setting.Appearance.general.clockFormat.formatInfo").map((e: string, i: number) => e ? <div pre-text="" key={i}>{e}</div> : <br key={i} />)
@@ -8092,7 +8649,7 @@ const windowsType = {
                     <button
                       kiase-sty=""
                       disabled={nowSetting.appearance.clockFormat.join("") === format.join("")}
-                      onClick={() => someActions.setSetting(usrIndx, e => {
+                      onClick={() => SetS.setting(usrIndx, e => {
                         e.appearance.clockFormat = format
                         return e
                       })
@@ -8157,7 +8714,7 @@ const windowsType = {
                 }
 
                 useEffect(() => {
-                  someActions.setSetting(usrIndx, e => {
+                  SetS.setting(usrIndx, e => {
                     e.performance = PERFSET
                     return e
                   })
@@ -8186,8 +8743,6 @@ const windowsType = {
                     const wsInfo = await WSA.getWorkspaceInfo(usrIndx, state.nowWorkSpace, "setting");
                     const wallpaperUrl = wsInfo.wallpaper.url!;
                     if (wallpaperUrl) {
-                      const out = await LABS_E621_API.other.proxy({ url: wallpaperUrl });
-                      setColorList(out);
                     }
                   })();
                 }, [nowSetting.appearance.wallpaper])
@@ -8203,7 +8758,7 @@ const windowsType = {
                 return <>
                   <div>懶惰寫界面 先這樣吧 凑合著用</div>
                   <input type="color" value={newColor} onChange={(e) => setNewColor(e.currentTarget.value)} />
-                  <button kiase-sty="" onClick={() => someActions.setColor(usrIndx, newColor)}>{"apply"}</button>
+                  <button kiase-sty="" onClick={() => SetS.color(usrIndx, newColor)}>{"apply"}</button>
                   <br />
                   {colorList}
                 </>
@@ -8254,7 +8809,7 @@ const windowsType = {
                             const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
                             const { data, type } = item
                             if (type === "post" || type === "postImg") {
-                              someActions.setAsWallpaper(usrIndx, data.file.url!, data)
+                              SetS.wallpaper(usrIndx, data.file.url!, data)
                               setBgCfg({
                                 url: data.file.url!,
                                 positionX: 50,
@@ -8358,7 +8913,7 @@ const windowsType = {
                       }}>{t("setting.Appearance.wallpaper.apply")}</button>
                       {bgCfg.fromPost && <button
                         kiase-sty=""
-                        onClick={() => someActions.openWithGetByID(bgCfg.fromPost!)}
+                        onClick={() => acts.open.getByID(bgCfg.fromPost!)}
                         draggable={true}
                         onDragStart={(e) => {
                           dragItem(e, {
@@ -8671,7 +9226,7 @@ const windowsType = {
                           })
                         }
                       }}>E621 App</h1>
-                      <h2>inDev 0.1.1</h2>
+                      <h2>inDev 0.1.2</h2>
                       <h3>{navigator.appVersion}</h3>
 
                       <br />
@@ -8967,7 +9522,7 @@ const windowsType = {
               {settingTabs.categorieList.map((e, i) => <span
                 className={clsx(
                   style["cart"],
-                  nowPage === "NONE" ? "" : e === nowPage.categorie ? style["activ"] : ""
+                  nowPage === "NONE" ? "" : (e === nowPage.categorie && style["activ"])
                 )}
                 onMouseEnter={() => { setNowPage({ categorie: e, pages: settingTabs.pageList[e][0] as any }) }}
                 key={i}
@@ -8987,6 +9542,26 @@ const windowsType = {
     const eRef = useRef<HTMLDivElement>(null)
 
     const [tmpList, setTmpList] = useState<{ uuid: string; item: workSpaceType.Unit.BaseItem.TmpItem }[]>([]);
+
+    const peekPreRef = useRef<E621.Post | undefined>(undefined);
+    const peekPreKeyDown = useRef(false);
+
+    const getPostFromTmpItem = (item: workSpaceType.Unit.BaseItem.TmpItem): E621.Post | undefined => {
+      const { data } = item;
+      if (data.type === "post") {
+        return data.data.cachedPost;
+      }
+      if (data.type === "postGetByID") {
+        return data.data.fetchedPost || undefined;
+      }
+      if (data.type === "viewer") {
+        return data.data;
+      }
+      if (data.type === "preview") {
+        return data.data;
+      }
+      return undefined;
+    };
 
     useEffect(() => {
       WSA.listTmpItems(usrIndx).then(e => {
@@ -9018,8 +9593,43 @@ const windowsType = {
     }, []);
 
     useEffect(() => {
-      thisWindow?.setTitle(t("windowsType.tmpList"))
+      thisWindow?.setTitle(getWindowTitle({ type: "tmp" }))
     }, [])
+
+    useEffect(() => {
+      let isdown = peekPreKeyDown.current;
+
+      const display = () => {
+        if (!peekPreRef.current) return;
+        createWindow(wmRef, {
+          type: "preview",
+          data: peekPreRef.current
+        });
+      };
+
+      const keydown = (e: KeyboardEvent) => {
+        if (disableWindowKeyEvent) return;
+        if (isdown) return;
+        if (e.code === "Space") {
+          isdown = true;
+          display();
+        }
+      };
+
+      const keyup = (e: KeyboardEvent) => {
+        if (e.code === "Space") {
+          isdown = false;
+        }
+      };
+
+      document.addEventListener("keydown", keydown);
+      document.addEventListener("keyup", keyup);
+
+      return () => {
+        document.removeEventListener("keydown", keydown);
+        document.removeEventListener("keyup", keyup);
+      };
+    }, []);
 
     return (
       <WINDOW_FRAME className={style["tmpList"]} menulist={[
@@ -9042,7 +9652,7 @@ const windowsType = {
                         { name: "啊？那算了", value: "" },
                       ], (e) => {
                         if (e === "yes") {
-                          someActions.setAppState(e => {
+                          SetS.appState(e => {
                             WSA.clearTmpList(usrIndx);
                             return e
                           })
@@ -9059,8 +9669,9 @@ const windowsType = {
         ]
       ]}>
         <div
-          className={clsx(style["list"], start ? style["START"] : "")}
+          className={clsx(style["list"], start && style["START"])}
           ref={eRef}
+          onKeyDown={e => { if (e.code === "Space") e.preventDefault(); }}
           onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={e => {
             if (!e.dataTransfer) return;
@@ -9077,7 +9688,7 @@ const windowsType = {
                 case "tag": {
                   if (data.action === "=") {
                     const createAt = GetNowTime()
-                    someActions.saveToTmp(usrIndx,
+                    acts.saveToTmp(usrIndx,
                       {
                         type: "postSearch",
                         data: {
@@ -9085,59 +9696,57 @@ const windowsType = {
                           pageCache: [],
                           searchTags: [data.tag]
                         }
-                      }
-                      , `${t("windowsType.postSearch")} [ ${data.tag} ]`, `post_search-${createAt}`)
+                      }, `post_search-${createAt}`)
                   }
                   break;
                 };
                 case "postSearch": {
-                  someActions.saveToTmp(usrIndx, { type: "postSearch", data: item.data }, item.thisWindow!.title, item.thisWindow!.id)
+                  const winId = item.thisWindow?.id ?? `post_search-${GetNowTime()}`;
+                  acts.saveToTmp(usrIndx, { type: "postSearch", data: item.data }, winId);
                   break;
                 };
                 case "post": {
-                  someActions.saveToTmp(usrIndx, {
+                  acts.saveToTmp(usrIndx, {
                     type: "postGetByID",
                     data: {
                       currentId: data.id,
                       status: "success",
                       fetchedPost: data
                     }
-                  }, `${t("windowsType.postGetByID")} [ ${data.id} ]`, `post_get_by_id-${data.id}`)
+                  }, `post_get_by_id-${data.id}`)
                   break;
                 };
                 case "postId": {
-                  someActions.saveToTmp(usrIndx, {
+                  acts.saveToTmp(usrIndx, {
                     type: "postGetByID",
                     data: {
                       currentId: data,
                       status: "loading",
                     }
-                  }, `${t("windowsType.postGetByID")} [ ${data} ]`, `post_get_by_id-${data}`)
+                  }, `post_get_by_id-${data}`)
                   break;
                 };
                 case "postImg": {
-                  someActions.saveToTmp(usrIndx, {
+                  acts.saveToTmp(usrIndx, {
                     type: "viewer",
                     data: data
-                  }, `${t("windowsType.viewer")} [ ${data.id} ]`, `viewer-${data.id}`)
+                  }, `viewer-${data.id}`)
                   break;
                 };
                 case "pool": {
-                  someActions.saveToTmp(usrIndx, { type: "pool", data: item.data }, item.thisWindow!.title, item.thisWindow!.id)
+                  const winId = item.thisWindow?.id ?? `pool-${item.data.poolId}`;
+                  acts.saveToTmp(usrIndx, { type: "pool", data: item.data }, winId);
                   break;
                 };
                 case "poolId": {
-                  someActions.saveToTmp(usrIndx, {
+                  acts.saveToTmp(usrIndx, {
                     type: "pool",
                     data: {
                       nowPage: 1,
                       pageCache: {},
                       poolId: data
                     }
-                  },
-                    `${t("windowsType.pool")} : ${data} [ Page : 1 ]`,
-                    `pool-${data}`
-                  )
+                  }, `pool-${data}`)
                   break;
                 };
                 case "setting": {
@@ -9194,12 +9803,23 @@ const windowsType = {
               }
             })() as e621Type.DragItemType.defaul;
 
+            const post = getPostFromTmpItem(item);
+
             return <div
               key={item.createAt}
               className={style["item"]}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
               style={{
                 transitionDelay: DELAY_EFFECT(`${baseDely}s`)
+              }}
+              onMouseEnter={() => {
+                if (post) peekPreRef.current = post;
+              }}
+              onMouseMove={() => {
+                if (post) peekPreRef.current = post;
+              }}
+              onMouseLeave={() => {
+                peekPreRef.current = undefined;
               }}
               onDrop={async e => {
                 if (!e.dataTransfer) return;
@@ -9231,7 +9851,6 @@ const windowsType = {
 
                       const updatedItem = {
                         ...item,
-                        windowTitle: `${t("windowsType.postSearch")} [ ${searchTags.length === 0 ? t("windowsType.postSearch.title.noTags") : searchTags.join(",")} ]`,
                         data: {
                           ...item.data,
                           data: {
@@ -9252,7 +9871,7 @@ const windowsType = {
               <div className={style["main"]}>
                 <div className={style["info"]}>
                   <div className={style["title"]}>
-                    {item.windowTitle}
+                    {getWindowTitle(item.data)}
                   </div>
                   <div className={style["createAt"]}>
                     {`Create at // ${cnvFormat.clock(item.createAt, "-YY- -MM- -dd- :HH:::mm:::ss:")}`}
@@ -9305,7 +9924,7 @@ const windowsType = {
 
                           if (wm.hasWindowID(targetID)) {
                             wm.updateWindow(targetID, {
-                              title: item.windowTitle,
+                              title: getWindowTitle(item.data),
                               customData: item.data,
                               children: getChild()
                             });
@@ -9313,7 +9932,7 @@ const windowsType = {
                             Kiasole.log(`Restore Window: ${targetID}`);
                           } else {
                             wm.createWindow({
-                              title: item.windowTitle,
+                              title: getWindowTitle(item.data),
                               id: targetID,
                               customData: item.data,
                               children: getChild(),
@@ -9334,7 +9953,7 @@ const windowsType = {
                             if (data.data.fetchedPost) {
                               return {
                                 type: "post",
-                                data: data.data
+                                data: data.data.fetchedPost
                               }
                             } else {
                               return {
@@ -9388,7 +10007,7 @@ const windowsType = {
   }
 }
 
-someActions.openWithGetByID = (post) => {
+acts.open.getByID = (post) => {
   const windowID = `post_get_by_id-${post.id}`
   const postID = post.id
   if (wmRef.current?.getWindow(windowID))
@@ -9404,7 +10023,7 @@ someActions.openWithGetByID = (post) => {
     })
 }
 
-someActions.openWithViewer = (post) => {
+acts.open.view = (post) => {
   const windowID = `viewer-${post.id}`
   if (wmRef.current?.getWindow(windowID))
     wmRef.current.bringToFront(windowID)
@@ -9424,12 +10043,16 @@ createWindow = function (wmRef, customData, other, setData) {
       wm?.bringToFront(winID)
       const win = wm?.getWindow(winID)
       win?.setRect({ top: other?.top, left: other?.left }, "px", other?.anchor)
+
       if (setData) {
         win?.setData(customData)
+
+        win?.setTitle(getWindowTitle(customData))
+
         switch (customData.type) {
           case "postSearch": {
             return win?.update({
-              children: <windowsType.postSearch id={`${createAt}`} />,
+              children: <windowsType.postSearch id={`${createAt}`} key={createAt} />,
             })
           }
 
@@ -9462,6 +10085,26 @@ createWindow = function (wmRef, customData, other, setData) {
               children: <windowsType.peekPreview key={createAt} />,
             })
           }
+
+          case "setting": {
+            return win?.update({
+              children: <windowsType.setting key={createAt} />,
+            })
+          }
+
+          case "tmp": {
+            return win?.update({
+              children: <windowsType.tmpList key={createAt} />,
+            })
+          }
+
+          case "post": {
+            const { data } = customData;
+            const pId = data.postId;
+            return win?.update({
+              children: <windowsType.post id={`${pId}`} key={createAt} />
+            })
+          }
         }
       }
       return true
@@ -9478,7 +10121,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: t("windowsType.setting"),
+        title: getWindowTitle({ type: "setting", data: customData.data }),
         children: <windowsType.setting />,
         ...other,
         customData,
@@ -9492,7 +10135,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: t("windowsType.tmpList"),
+        title: getWindowTitle({ type: "tmp" }),
         children: <windowsType.tmpList />,
         ...other,
         customData,
@@ -9525,7 +10168,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: `${t("windowsType.postSearch")} [ ${createAt} ]`,
+        title: getWindowTitle(data),
         children: <windowsType.postSearch id={`${createAt}`} />,
         ...other,
         customData: data
@@ -9541,7 +10184,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: `${t("windowsType.postGetByID")} [ ${cId} ]`,
+        title: getWindowTitle(customData),
         children: <windowsType.postGetByID id={`${cId}`} />,
         ...other,
         customData,
@@ -9557,7 +10200,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: `${t("windowsType.pool")} [ ${pId} ]`,
+        title: getWindowTitle(customData),
         children: <windowsType.pool id={`${pId}`} />,
         ...other,
         customData,
@@ -9573,7 +10216,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: `${t("windowsType.viewer")} [ ${pId} ]`,
+        title: getWindowTitle(customData),
         children: <windowsType.viewer id={`${pId}`} />,
         ...other,
         customData,
@@ -9590,7 +10233,7 @@ createWindow = function (wmRef, customData, other, setData) {
 
       return wm?.createWindow({
         id,
-        title: `${t("windowsType.preview")} [ ${pId} ]`,
+        title: getWindowTitle(customData),
         children: <windowsType.peekPreview />,
         height: 720,
         width: 1280,
@@ -9686,8 +10329,13 @@ const Menu = () => {
           <button
             key={`${index}-${item.name}`}
             kiase-style=""
-            onMouseUp={() => {
-              item.action?.();
+            onContextMenu={e => item.onContextMenu && e.preventDefault()}
+            onMouseUp={(e) => {
+              if (e.button === 0) {
+                item.action?.();
+              } if (e.button === 2) {
+                item.onContextMenu?.();
+              }
               setMenuDisplay(false);
             }}
             disabled={item.dragItem !== undefined ? !item.dragItem : false}
@@ -9757,7 +10405,21 @@ const VideoMirror = ({ src, style: css }: { src: string; style?: React.CSSProper
   return <video ref={videoRef} style={css} muted autoPlay loop playsInline controls={false} />
 }
 
-const Background = ({ bg }: { bg: workSpaceType.Unit.BaseItem.Image }) => {
+const TaskbarClock = React.memo(({ formats }: { formats: string[] }) => {
+  const clock = fuckingState.clock()
+  return <>
+    {formats.map((e, i) => <div key={i}>{cnvFormat.clock(clock, e)}</div>)}
+  </>
+})
+
+const ClockPreview = React.memo(({ formats }: { formats: string[] }) => {
+  const timeCode = fuckingState.clock()
+  return <>
+    {formats.map((e, i) => <div key={i} mid-txt="">{cnvFormat.clock(timeCode, e)}</div>)}
+  </>
+})
+
+const Background = React.memo(({ bg }: { bg: workSpaceType.Unit.BaseItem.Image }) => {
   const position = `${bg.positionX ?? 50}% ${bg.positionY ?? 50}%`
   const baseCss: React.CSSProperties = {
     objectPosition: position,
@@ -9781,7 +10443,13 @@ const Background = ({ bg }: { bg: workSpaceType.Unit.BaseItem.Image }) => {
 
     </div>
   )
-}
+}, (prev, next) =>
+  prev.bg.url === next.bg.url &&
+  prev.bg.positionX === next.bg.positionX &&
+  prev.bg.positionY === next.bg.positionY &&
+  prev.bg.scale === next.bg.scale &&
+  prev.bg.fromPost?.id === next.bg.fromPost?.id
+)
 
 /* ========================================================================================= */
 
@@ -9875,7 +10543,6 @@ const RunBox = (arg: RunBoxArgs) => {
           setRunBox(false);
         },
       },
-
       {
         name: "> " + t("windowsType.setting"),
         engName: "> " + ent("windowsType.setting"),
@@ -9967,6 +10634,28 @@ const RunBox = (arg: RunBoxArgs) => {
       setRunBox(false)
     }
 
+    const openPost = (id: number) => {
+      createWindow(wmRef, {
+        type: "postGetByID",
+        data: {
+          currentId: id,
+          status: "loading",
+        }
+      })
+      setRunBox(false)
+    }
+
+    const openPool = (id: number) => {
+      createWindow(wmRef, {
+        type: "pool",
+        data: {
+          poolId: id,
+          nowPage: 1,
+          pageCache: [],
+        }
+      })
+      setRunBox(false)
+    }
 
     const calc: (rawInp: string) => Option[] = (rawInp) => {
       try {
@@ -9975,7 +10664,7 @@ const RunBox = (arg: RunBoxArgs) => {
           name: `${t("runBox.intro.mathCalc.calc")} : ${res}`,
           engName: `${ent("runBox.intro.mathCalc.calc")} : ${res}`,
           action() {
-            someActions.copyString(res)
+            copyString(res)
             _app.throwNewNotic(t("Notic.math.copy").replace("$1", res))
             setRunBox(false)
           },
@@ -10004,33 +10693,54 @@ const RunBox = (arg: RunBoxArgs) => {
         return [{
           name: `${t("windowsType.postGetByID")} : [ ${rawInp} ]`,
           engName: `${ent("windowsType.postGetByID")} : [ ${rawInp} ]`,
-          action() {
-            createWindow(wmRef, {
-              type: "postGetByID",
-              data: {
-                currentId: rawInp,
-                status: "loading",
-              }
-            })
-            setRunBox(false)
-          }
+          action() { openPost(+rawInp) }
         },
         {
           name: `${t("windowsType.pool")} : [ ${rawInp} ]`,
           engName: `${ent("windowsType.pool")} : [ ${rawInp} ]`,
-          action() {
-            createWindow(wmRef, {
-              type: "pool",
-              data: {
-                poolId: +rawInp,
-                nowPage: 1,
-                pageCache: [],
-              }
-            })
-            setRunBox(false)
-          },
+          action() { openPool(+rawInp) },
         },]
       } else return [];
+    }
+
+    const urlprs: (rawInp: string) => Option[] = (rawInp) => {
+      if (rawInp) {
+        const res = parseE621Url(rawInp)
+        if (!res) return []
+        switch (res.type) {
+          case "post": return [
+            {
+              name: `${t("windowsType.postGetByID")} : [ ${res.postId} ]`,
+              engName: `${ent("windowsType.postGetByID")} : [ ${res.postId} ]`,
+              action() { openPost(res.postId) }
+            },
+            ...(res.searchTags ? [
+              {
+                name: `${t("runBox.intro.searchPost.search")} : [ ${res.searchTags} ]`,
+                engName: `${ent("runBox.intro.searchPost.search")} : [ ${res.searchTags} ]`,
+                action() { openSearch(res.searchTags!.join(" ")) }
+              },
+            ] : [])
+          ];
+          case "postSearch": return [
+            {
+              name: `${t("runBox.intro.searchPost.search")} : [ ${res.searchTags} ]`,
+              engName: `${ent("runBox.intro.searchPost.search")} : [ ${res.searchTags} ]`,
+              action() { openSearch(res.searchTags!.join(" ")) }
+            },
+          ];
+          case "pool": return [
+            {
+              name: `${t("windowsType.pool")} : [ ${res.poolId} ]`,
+              engName: `${ent("windowsType.pool")} : [ ${res.poolId} ]`,
+              action() { openPool(res.poolId) }
+            },
+          ];
+          default: return []
+        }
+      } else {
+        return []
+      }
     }
 
     return {
@@ -10038,11 +10748,12 @@ const RunBox = (arg: RunBoxArgs) => {
       openid,
       calc,
       search,
+      urlprs,
     }
   }, [nowSetting.lang])
 
   useEffect(() => {
-    const { calc, openid, search, openSearch } = opts
+    const { calc, openid, search, openSearch, urlprs } = opts
     setOptionIndex(0)
     if (!runBox) { setOptions([]); return; };
     const rawInp = runInput.trim()
@@ -10086,7 +10797,7 @@ const RunBox = (arg: RunBoxArgs) => {
       }
     } else if (rawInp.startsWith(".")) {
       if (inpText) {
-        const ls = openid(rawInp)
+        const ls = openid(inpText)
         if (ls.length > 0) {
           setOptions(ls)
         } else {
@@ -10181,11 +10892,16 @@ const RunBox = (arg: RunBoxArgs) => {
         if (res.length > 0) {
           setOptions(fuse.search(rawInp).map(e => e.item))
         } else {
-          setOptions([
-            ...openid(rawInp),
-            ...search(rawInp),
-            ...calc(rawInp),
-          ])
+          const res = urlprs(rawInp)
+          if (res.length > 0) {
+            setOptions(res)
+          } else {
+            setOptions([
+              ...openid(rawInp),
+              ...search(rawInp),
+              ...calc(rawInp),
+            ])
+          }
         }
       } else {
         setOptions(action)
@@ -10199,7 +10915,10 @@ const RunBox = (arg: RunBoxArgs) => {
     setRunInput,
     runBoxInputRef,
     RunboxElement: (<div
-      className={clsx(style["Run"], !runBox && style["hide"])}
+      className={clsx(
+        style["Run"],
+        !runBox && style["hide"],
+      )}
       onClick={() => setRunBox(false)}
     >
       <input
@@ -10241,7 +10960,7 @@ const RunBox = (arg: RunBoxArgs) => {
             <button
               onClick={(ev) => { StopEvent(ev); e.action(); }}
               onMouseMove={() => setOptionIndex(i)}
-              className={optionIndex === i ? style["focus"] : ""}
+              className={clsx(optionIndex === i && style["focus"])}
             >{e.name}</button>
           </div>
         )
@@ -10380,18 +11099,19 @@ const Desktop = () => {
 
   wmRef = useRef<WindowManager<e621Type.defaul> | null>(null);
 
-  const clock = fuckingState.clock()
   const resolution = fuckingState.resolution();
 
   // #region 一坨 State
   const [workSpaces, setWorkSpaces] = useState<workSpaceType.WorkSpaces.WorkSpaces[]>([]);
   const [nowWorkSpace, setNowWorkSpace] = useState<string>("");
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [background, setBackground] = useState<workSpaceType.Unit.BaseItem.Image>({ url: "" })
   const [mouseIsPress, setMouseIsPress] = useState<boolean>(false)
   const [windowsList, setWindowsList] = useState<windowsList>([])
 
   const [workSpaceEditor, setWorkSpaceEditor] = useState(false);
   const [startMenu, setStartMenu] = useState<boolean>(false)
+  const [dropMenuBtn, setDropMenuBtn] = useState(-1)
   const [snap, setSnap] = useState<SnapPosition | null>(null)
   const [PERF_ClassList, setPERF_ClassList] = useState<string[]>([])
   // #endregion
@@ -10404,7 +11124,15 @@ const Desktop = () => {
   const snapElementRef = useRef<HTMLDivElement>(null);
   const dragTimeOut = useRef<NodeJS.Timeout>(setTimeout(() => { }, 0));
   const liveSnapshotRef = useRef<{ id: string; snapshot: workSpaceType.Unit.windowsStatus } | null>(null);
+  const prevWorkSpaceEditorRef = useRef(false);
+  const wsSwitchingRef = useRef(false);
+  const workSpaceEditorRef = useRef(workSpaceEditor);
+  workSpaceEditorRef.current = workSpaceEditor;
   // #endregion
+
+  ChackWallpaperUse = (id) => {
+    return !!id && workSpaces.some(e => e.setting.wallpaper.fromPost?.id === id);
+  }
 
   useEffect(() => {
     CACHE_BASE_ROOT = `${WSA.rootDir}/${usrIndx}/.cache`;
@@ -10429,7 +11157,7 @@ const Desktop = () => {
           note: await WSA.getWorkspaceInfo(usrIndx, name, "note"),
           preview: await WSA.getWorkspaceInfo(usrIndx, name, "preview"),
           setting: await WSA.getWorkspaceInfo(usrIndx, name, "setting"),
-          status: []
+          status: await WSA.getWorkspaceInfo(usrIndx, name, "status"),
         })
       }
 
@@ -10439,6 +11167,7 @@ const Desktop = () => {
       const finalWsId = exists ? targetWsId : (workSpaces[0]?.id || "");
       setNowWorkSpace(finalWsId);
 
+      setWorkspaceLoaded(true);
     })()
 
     const onWsAdded = (e: CustomEvent) => {
@@ -10564,14 +11293,16 @@ const Desktop = () => {
     setIsLogin(false);
   }
 
-  const saveWinStatus = useCallback(async (logout?: boolean) => {
+  const saveWinStatus = useCallback(async (logout?: boolean, noNotic?: boolean) => {
     const wm = wmRef.current;
     if (!wm || !nowWorkSpace) return;
 
     const currentSnapshot = wm.captureSnapshot();
     await WSA.updateWorkspace(usrIndx, nowWorkSpace, { status: currentSnapshot });
 
-    _app.throwNewNotic(t("Notic.system.windowsStatusSaved"));
+    if (!noNotic) {
+      _app.throwNewNotic(t("Notic.system.windowsStatusSaved"));
+    }
 
     if (logout) Logout();
   }, [nowWorkSpace]);
@@ -10699,18 +11430,23 @@ const Desktop = () => {
 
   // #region 操他媽的工作區
 
-  const handleSwitchWorkspace = async (newWsId: string) => {
+  const handleSwitchWorkspace = useCallback(async (newWsId: string) => {
     const wm = wmRef.current;
-    if (!wm || newWsId === nowWorkSpace) return;
+    if (!wm || newWsId === nowWorkSpace || wsSwitchingRef.current) return;
 
-    const currentSnapshot = wm.captureSnapshot();
-    await WSA.updateWorkspace(usrIndx, nowWorkSpace, { status: currentSnapshot });
+    wsSwitchingRef.current = true;
+    try {
+      const currentSnapshot = wm.captureSnapshot();
+      await WSA.updateWorkspace(usrIndx, nowWorkSpace, { status: currentSnapshot });
 
-    const stateObj = await WSA.userState(usrIndx);
-    await stateObj.set({ nowWorkSpace: newWsId });
-  };
+      const stateObj = await WSA.userState(usrIndx);
+      await stateObj.set(prev => ({ ...prev, nowWorkSpace: newWsId }));
+    } finally {
+      wsSwitchingRef.current = false;
+    }
+  }, [nowWorkSpace]);
 
-  const handleDeleteWorkspace = async (targetId: string) => {
+  const handleDeleteWorkspace = useCallback(async (targetId: string) => {
     if (workSpaces.length <= 1) {
       _app.throwNewNotic(t("Notic.system.keepOneWorkspace"));
       return;
@@ -10734,9 +11470,9 @@ const Desktop = () => {
     const stateObj = await WSA.userState(usrIndx);
     await stateObj.set({ nowWorkSpace: nextWsId });
     await WSA.deleteWorkspace(usrIndx, targetId);
-  };
+  }, [workSpaces, nowWorkSpace]);
 
-  const handleAddWorkspace = async () => {
+  const handleAddWorkspace = useCallback(async () => {
     const newId = MakeID();
     const wm = wmRef.current;
     const currentSnapshot = wm ? wm.captureSnapshot() : [];
@@ -10757,8 +11493,7 @@ const Desktop = () => {
 
     const stateObj = await WSA.userState(usrIndx);
     await stateObj.set({ nowWorkSpace: newId });
-  };
-
+  }, [nowWorkSpace]);
   // #endregion
 
   // #region 純他媽監聽 State
@@ -10773,6 +11508,7 @@ const Desktop = () => {
       list.push("NONE_TRANSITION")
       list.push("NONE_FILTER")
       list.push("NONE_BACKDROP_FILTER")
+      list.push("NONE_ANIMATION")
     } else {
       if (!p.transition) {
         list.push("NONE_TRANSITION")
@@ -10783,9 +11519,12 @@ const Desktop = () => {
       if (!p.backdropFilter) {
         list.push("NONE_BACKDROP_FILTER")
       }
+      if (!p.cssAnimation) {
+        list.push("NONE_ANIMATION")
+      }
     }
 
-    someActions.setSetting(usrIndx, e => {
+    SetS.setting(usrIndx, e => {
       e.wmSettings.nonTransparens = !p.backdropFilter || !p.All || !p.transparenWinodw
       return e
     })
@@ -10797,6 +11536,7 @@ const Desktop = () => {
     perf.transition,
     perf.cssFilter,
     perf.backdropFilter,
+    perf.cssAnimation,
     perf.transparenWinodw,
   ]);
 
@@ -10810,31 +11550,55 @@ const Desktop = () => {
   useEffect(() => {
     if (isInitialMount.current || !nowWorkSpace) return;
 
-    const loadNewWs = async () => {
+    let cancelled = false;
+    const targetWsId = nowWorkSpace;
+
+    (async () => {
       const wm = wmRef.current;
       if (!wm) return;
 
       wm.getWindows().forEach(winInfo => wm.destroyWindow(winInfo.id));
-      const newWorkspace = await WSA.getWorkspaceInfo(usrIndx, nowWorkSpace, "status");
+      const newWorkspace = await WSA.getWorkspaceInfo(usrIndx, targetWsId, "status");
+      if (cancelled) return;
+
       if (newWorkspace) {
         applySnapshot(newWorkspace as any);
       }
-    };
-    loadNewWs();
-  }, [nowWorkSpace]);
 
-  /* 開工作區管理器 全村的人都要先消失 */
+      if (workSpaceEditorRef.current) {
+        liveSnapshotRef.current = {
+          id: targetWsId,
+          snapshot: newWorkspace || [],
+        };
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [nowWorkSpace, applySnapshot]);
+
+  /* 開工作區管理器 全村的人都要先消失 — 僅在進入編輯器時保存，切換工作區由 handleSwitchWorkspace 負責 */
   useEffect(() => {
-    if (workSpaceEditor) {
-      setRunBox(false);
-      setStartMenu(false);
+    const justOpened = workSpaceEditor && !prevWorkSpaceEditorRef.current;
+    prevWorkSpaceEditorRef.current = workSpaceEditor;
+
+    if (!justOpened) return;
+
+    setRunBox(false);
+    setStartMenu(false);
+
+    const wm = wmRef.current;
+    if (wm && nowWorkSpace) {
+      const currentSnapshot = wm.captureSnapshot();
+
       liveSnapshotRef.current = {
         id: nowWorkSpace,
-        snapshot: wmRef.current?.captureSnapshot() ?? []
+        snapshot: currentSnapshot
       };
+
+      WSA.updateWorkspace(usrIndx, nowWorkSpace, { status: currentSnapshot })
+        .catch(err => console.error("Auto-save on entering workspace editor failed:", err));
     }
   }, [workSpaceEditor, nowWorkSpace]);
-
 
   /* 某些東西出現後 我們就不要影響其他人了 */
   useEffect(() => {
@@ -10858,6 +11622,7 @@ const Desktop = () => {
   useEffect(() => {
     if (isInitialMount.current) return;
     reranderWindowContent()
+    updateAllWindowTitles()
   }, [nowSetting.lang, reranderWindowContent]);
 
   /* AppSetting的更新 */
@@ -10870,6 +11635,16 @@ const Desktop = () => {
       })
     }
   }, [nowSetting, nowSaveInfo])
+
+  /* 自動漂流到他該去的地方 */
+  useEffect(() => {
+    document.getElementById("workspace-" + nowWorkSpace)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "start"
+    })
+  }, [nowWorkSpace])
+
   // #endregion
 
   // #region 按鍵的 Event
@@ -10915,14 +11690,14 @@ const Desktop = () => {
         }
       }
 
-      if (e.altKey && e.code === "KeyW") {
+      if (e.altKey && !e.shiftKey && e.code === "KeyW") {
         setWorkSpaceEditor(e => !e)
       }
 
       if (workSpaceEditor) return
       if (keyispress) return;
 
-      if (e.altKey) {
+      if (e.altKey && !e.shiftKey) {
         switch (e.code) {
           case "KeyO": {
             keyispress = true
@@ -10984,15 +11759,32 @@ const Desktop = () => {
     }
 
     const keydown = (e: KeyboardEvent) => {
-      if (!workSpaceEditor) return;
+      const usingKey = (e.altKey && e.shiftKey)
+      if (!(workSpaceEditor || usingKey)) return;
 
-      // 修正：先找到當前索引位置
       const currentIndex = workSpaces.findIndex(w => w.id === nowWorkSpace);
+      if (e.code.startsWith("Digit") && usingKey) {
+        const changews = (indx: number) => {
+          handleSwitchWorkspace(workSpaces[indx].id)
+        }
 
+        const number = Number(e.code.slice(5))
+
+        if (number === 0) {
+          changews(9)
+        } else {
+          changews(number - 1)
+        }
+      }
       switch (e.code) {
         case "ArrowUp":
         case "ArrowLeft": {
+          if (keyispress) return;
+          keyispress = true
           if (currentIndex > 0) {
+            if (usingKey) {
+              saveWinStatus(false, true);
+            }
             handleSwitchWorkspace(workSpaces[currentIndex - 1].id)
           }
           break;
@@ -11000,7 +11792,12 @@ const Desktop = () => {
 
         case "ArrowDown":
         case "ArrowRight": {
+          if (keyispress) return;
+          keyispress = true
           if (currentIndex < workSpaces.length - 1) {
+            if (usingKey) {
+              saveWinStatus(false, true);
+            }
             handleSwitchWorkspace(workSpaces[currentIndex + 1].id)
           }
           break;
@@ -11034,10 +11831,10 @@ const Desktop = () => {
         wmRef.current?.nowFocusedWindow?.close();
       }
 
-      if (e.altKey) {
-        const win = windowsList
-          .map(e => wmRef.current?.getWindow(e.id)!)
-          .filter(e => e.isFocused)[0];
+      if (e.altKey && !e.shiftKey) {
+        const win = wmRef.current?.nowFocusedWindow
+
+        if (!win) return;
 
         const ev = (e: KeyboardEvent) => {
           keyispress = true
@@ -11135,26 +11932,28 @@ const Desktop = () => {
 
   /* 取消首次渲染標記 */
   useEffect(() => {
-    isInitialMount.current = false;
-  }, []);
+    if (workspaceLoaded) {
+      isInitialMount.current = false;
+    }
+  }, [workspaceLoaded]);
 
   /* 初始化wm */
   useEffect(() => {
-    if (containerRef.current && !wmRef.current) {
+    if (workspaceLoaded && containerRef.current && !wmRef.current) {
       wmRef.current = new WindowManager(containerRef.current);
     }
-  }, []);
+  }, [workspaceLoaded]);
 
   /* 寫這坨注解的時候 就是爲了找這個 */
   /* 這個是他媽的 初始化動畫 */
   useEffect(() => {
-    if (!isLogin) return;
+    if (!isLogin || !workspaceLoaded) return;
 
     (async () => {
       await functions.timeSleep(.5e3)
       setReady(true)
     })()
-  }, [isLogin])
+  }, [isLogin, workspaceLoaded])
 
   /* 初始化狀態 */
   useEffect(() => {
@@ -11187,6 +11986,7 @@ const Desktop = () => {
 
   /* 關是窗前先問你個問題 */
   useEffect(() => {
+    if (!devopts.askYouBeforeYouLeave) return;
     let messageIsDisplay = false
     let eventBlock = true
     const awa = (e: BeforeUnloadEvent) => {
@@ -11255,24 +12055,25 @@ const Desktop = () => {
       setWindowsList(wm.getWindows())
     }
 
-    wm.addEventListener("create", update)
-    wm.addEventListener("close", update)
-    wm.addEventListener("focus", update)
-    wm.addEventListener("moveEnd", update)
-    wm.addEventListener("resizeEnd", update)
-    wm.addEventListener("idupdate", update)
+    const list: (keyof WindowManagerEventMap<any>)[] = [
+      "create",
+      "minimize",
+      "blur",
+      "close",
+      "focus",
+      "moveEnd",
+      "resizeEnd",
+      "idupdate",
+    ]
+
+    list.forEach(e => wm.addEventListener(e, update))
 
     return () => {
       if (wm) {
-        wm.removeEventListener("create", update)
-        wm.removeEventListener("close", update)
-        wm.removeEventListener("focus", update)
-        wm.removeEventListener("moveEnd", update)
-        wm.removeEventListener("resizeEnd", update)
-        wm.removeEventListener("idupdate", update)
+        list.forEach(e => wm.removeEventListener(e, update))
       }
     }
-  }, [])
+  }, [workspaceLoaded])
 
   /* fucking *SnapPreview* */
   useEffect(() => {
@@ -11298,7 +12099,7 @@ const Desktop = () => {
         wm.removeEventListener("snapEnd", end)
       }
     }
-  }, [])
+  }, [workspaceLoaded])
 
   /* 欸 snap 的他媽的視覺效果 幹 */
   useEffect(() => {
@@ -11326,7 +12127,7 @@ const Desktop = () => {
         wm.removeEventListener("move", prev)
       }
     }
-  }, [snap])
+  }, [snap, workspaceLoaded])
 
   // #endregion
 
@@ -11372,22 +12173,22 @@ const Desktop = () => {
       const itemdata = e.dataTransfer.getData(e621Type.DragItemType.appname)
       const item = e.dataTransfer.items[0]
 
+      const scale = 100 / nowSetting.appearance.scale;
+
+      const position: {
+        left: number;
+        top: number;
+        anchor: WindowAnchor;
+      } = {
+        left: scale * e.clientX,
+        top: scale * e.clientY,
+        anchor: "center-center",
+      }
+
       if (itemdata) {
         StopEvent(e)
         const item: e621Type.DragItemType.defaul = JSON.parse(itemdata)
         const { data, type } = item
-
-        const scale = 100 / nowSetting.appearance.scale;
-
-        const position: {
-          left: number;
-          top: number;
-          anchor: WindowAnchor;
-        } = {
-          left: scale * e.clientX,
-          top: scale * e.clientY,
-          anchor: "center-center",
-        }
 
         switch (type) {
           case "post": {
@@ -11399,7 +12200,7 @@ const Desktop = () => {
                   status: "success",
                   fetchedPost: data
                 }
-              }, position, true)
+              }, position)
             break;
           };
           case "postId": {
@@ -11410,7 +12211,7 @@ const Desktop = () => {
                   currentId: data,
                   status: "loading",
                 }
-              }, position, true)
+              }, position)
             break;
           };
           case "pool": {
@@ -11418,7 +12219,7 @@ const Desktop = () => {
               {
                 type: "pool",
                 data
-              }, position, true)
+              }, position)
             break;
           }
           case "poolId": {
@@ -11430,7 +12231,7 @@ const Desktop = () => {
                   nowPage: 1,
                   pageCache: {},
                 }
-              }, position, true)
+              }, position)
             break;
           }
           case "postSearch": {
@@ -11438,7 +12239,7 @@ const Desktop = () => {
               {
                 type: "postSearch",
                 data
-              }, position, true)
+              }, position)
             break;
           };
           case "tag": {
@@ -11451,7 +12252,7 @@ const Desktop = () => {
                     pageCache: [],
                     searchTags: [data.tag],
                   }
-                }, position, true)
+                }, position)
             }
             break;
           };
@@ -11460,14 +12261,14 @@ const Desktop = () => {
               {
                 type: "viewer",
                 data: data
-              }, position, true)
+              }, position)
             break;
           };
           case "temp": {
             createWindow(wmRef,
               {
                 type: "tmp",
-              }, position, true)
+              }, position)
             break;
           };
           case "setting": {
@@ -11475,13 +12276,43 @@ const Desktop = () => {
               {
                 type: "setting",
                 data
-              }, position, true)
+              }, position)
             break;
           };
         };
       } else if (item) {
         if (item.kind !== "string") return;
+        StopEvent(e);
+        item.getAsString((text) => {
 
+          const res = parseE621Url(text)
+          if (!res) return;
+          switch (res.type) {
+            case "post": {
+              createWindow(wmRef,
+                {
+                  type: "postGetByID",
+                  data: {
+                    currentId: res.postId!,
+                    status: "loading",
+                  }
+                }, position)
+              break;
+            }
+            case "postSearch": {
+              createWindow(wmRef,
+                {
+                  type: "postSearch",
+                  data: {
+                    nowPage: 1,
+                    pageCache: [],
+                    searchTags: res.searchTags!
+                  }
+                }, position)
+              break;
+            }
+          }
+        })
       }
     }
     document.addEventListener("dragover", dragoverEvent)
@@ -11495,10 +12326,17 @@ const Desktop = () => {
 
   /* 全局的拖放 but 上面那條 cancel */
   useEffect(() => {
-    const area = dragCancelAreaRef.current
-    if (!area) return;
-    const dragstart = () => area.classList.add(style["activ"]);
-    const dragend = () => area.classList.remove(style["activ"]);
+    const dragstart = () => {
+      if (dragCancelAreaRef.current) {
+        dragCancelAreaRef.current.classList.add(style["activ"]);
+      }
+    };
+
+    const dragend = () => {
+      if (dragCancelAreaRef.current) {
+        dragCancelAreaRef.current.classList.remove(style["activ"]);
+      }
+    };
 
     document.addEventListener("dragstart", dragstart);
     document.addEventListener("dragend", dragend);
@@ -11507,7 +12345,8 @@ const Desktop = () => {
       document.removeEventListener("dragstart", dragstart);
       document.removeEventListener("dragend", dragend);
     };
-  }, [])
+  }, []);
+
 
   // #endregion
 
@@ -11527,6 +12366,167 @@ const Desktop = () => {
     return windowActionList(win);
   }
 
+  type WorkSpacesMenuProp = {
+    workSpaces: workSpaceType.WorkSpaces.WorkSpaces[];
+    resolution: Resolution;
+    nowWorkSpace: string
+    handleSwitchWorkspace: (s: string) => Promise<void>
+    handleDeleteWorkspace: (s: string) => Promise<void>
+    handleAddWorkspace: () => Promise<void>
+    inputKeyEvent: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  }
+
+  const WorkSpacesMenu = useCallback(({
+    workSpaces,
+    resolution,
+    nowWorkSpace,
+    handleSwitchWorkspace,
+    handleDeleteWorkspace,
+    handleAddWorkspace,
+    inputKeyEvent,
+  }: WorkSpacesMenuProp) => {
+
+    return <div className={style["menu"]} >
+      {workSpaces.map((e, i) => (
+        <div
+          className={clsx(
+            style["workSpace"],
+            nowWorkSpace === e.id && style["activ"]
+          )}
+          key={e.id}
+          id={"workspace-" + e.id}
+        >
+          <div className={style["top"]}>
+            <input
+              type="text"
+              key={e.note.name}
+              defaultValue={e.note.name}
+              placeholder={t("workSpaceManager.name.placeholder")}
+              onKeyDown={(el) => {
+                inputKeyEvent(el)
+                switch (el.code) {
+                  case "Enter":
+                  case "NumpadEnter": {
+                    WSA.updateWorkspace(usrIndx, e.id, {
+                      note: { ...e.note, name: el.currentTarget.value }
+                    })
+                    return;
+                  }
+                }
+              }}
+              onBlur={(el) => {
+                WSA.updateWorkspace(usrIndx, e.id, {
+                  note: { ...e.note, name: el.currentTarget.value }
+                })
+              }}
+              style={{ color: e.setting.color }}
+            />
+            {workSpaces.length > 1 && (
+              <button onClick={() => handleDeleteWorkspace(e.id)}>
+                <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" style={{ fill: e.setting.color }}><path d="m291-240-51-51 189-189-189-189 51-51 189 189 189-189 51 51-189 189 189 189-51 51-189-189-189 189Z" /></svg>
+              </button>
+            )}
+          </div>
+          <button
+            className={style["desktopPreview"]}
+            onClick={() => handleSwitchWorkspace(e.id)}
+            style={{
+              aspectRatio: `${resolution[0]} / ${resolution[1]}`,
+              borderColor: e.setting.color
+            }}
+          >
+            <div className={style["indexNumber"]}><span style={{ color: e.setting.color }}>{`# ${i.toString().padStart((workSpaces.length - 1).toString().length, "0")}`}</span></div>
+            <div className={style["backdrop"]} />
+            <div className={style["windows"]} >
+              {(e.id === nowWorkSpace && liveSnapshotRef.current?.id === nowWorkSpace
+                ? liveSnapshotRef.current.snapshot
+                : e.status
+              ).filter(win => !win.isMinimized).map((win, i) => <div
+                className={style["win"]}
+                key={i}
+                style={{ zIndex: win.zIndex }}
+              >
+                <div
+                  className={style["position"]}
+                  style={{
+                    borderColor: color.bright(e.setting.color, .8),
+                    backgroundColor: color.bright(e.setting.color, .3) + "80",
+                    top: win.rect.top + "%",
+                    left: win.rect.left + "%",
+                    width: win.rect.width + "%",
+                    height: win.rect.height + "%",
+                  }}
+                />
+              </div>)}
+            </div>
+            <Background bg={e.setting.wallpaper} />
+          </button>
+        </div>
+      ))}
+      <button onClick={handleAddWorkspace} className={style["add"]}>
+        {t("workSpaceManager.newDesktop")}
+      </button>
+    </div>
+  }, [])
+
+  type WorkspaceTipsProp = {
+    nowWorkSpace: string;
+    workSpaces: workSpaceType.WorkSpaces.WorkSpaces[];
+    workSpaceEditor: boolean;
+  }
+  const WorkspaceTips = useCallback(({
+    nowWorkSpace,
+    workSpaces,
+    workSpaceEditor,
+  }: WorkspaceTipsProp) => {
+    const index = workSpaces.findIndex(e => e.id === nowWorkSpace)
+    if (index === -1) return;
+    const ws = workSpaces[index]!
+
+    const [show, setShow] = useState(false)
+    useEffect(() => {
+
+      let timeout = setTimeout(() => { }, 250);
+
+      const kd = (e: KeyboardEvent) => {
+        const isPress = e.altKey && e.shiftKey
+        if (isPress) {
+          clearTimeout(timeout)
+          setShow(true)
+        } else {
+          timeout = setTimeout(() => {
+            setShow(false)
+          }, 250);
+        }
+      };
+
+      document.addEventListener("keydown", kd)
+      document.addEventListener("keyup", kd)
+      return () => {
+        document.removeEventListener("keydown", kd)
+        document.removeEventListener("keyup", kd)
+      }
+    }, [])
+
+    return <div className={clsx(style["WorkspaceTips"], (show || workSpaceEditor) && style["show"])} >
+      <div className={style["Backdrop"]} />
+      <div className={style["Information"]} key={nowWorkSpace}>
+        <div className={style["name"]}>{ws.note.name}</div>
+        <div className={clsx(style["note"], ws.note.note && style["havNote"])}>{ws.note.note || "NOTHING"}</div>
+        <div className={style["index"]}>{`# ${index.toString().padStart((workSpaces.length - 1).toString().length, "0")}`}</div>
+      </div>
+    </div>
+  }, [])
+
+  if (!workspaceLoaded) return <div
+    id={style["Desktop"]}
+    style={{
+      zoom: `${nowSetting.appearance.scale}%`
+    }}
+  >
+    <NODATA.Loading />
+  </div>;
+
   return (
     displayDesktop && <div
       id={style["Desktop"]}
@@ -11542,83 +12542,22 @@ const Desktop = () => {
     >
       {importing && <div className={style["Importing"]}>
         <div className={style["dark"]} />
-        <NODATA.Fetching />
+        <NODATA.Loading />
       </div>}
 
 
-      <div className={style["workSpaceMgr"]}>
-        <div className={style["menu"]}>
-          {workSpaces.map((e, i) => (
-            <div className={clsx(style["workSpace"], nowWorkSpace === e.id ? style["activ"] : "")} key={e.id}>
-              <div className={style["top"]}>
-                <input
-                  type="text"
-                  key={e.note.name}
-                  defaultValue={e.note.name}
-                  placeholder={t("workSpaceManager.name.placeholder")}
-                  onKeyDown={(el) => {
-                    inputKeyEvent(el)
-                    switch (el.code) {
-                      case "Enter":
-                      case "NumpadEnter": {
-                        WSA.updateWorkspace(usrIndx, e.id, {
-                          note: { ...e.note, name: el.currentTarget.value }
-                        })
-                        return;
-                      }
-                    }
-                  }}
-                  onBlur={(el) => WSA.updateWorkspace(usrIndx, e.id, {
-                    note: { ...e.note, name: el.currentTarget.value }
-                  })}
-                  style={{ color: e.setting.color }}
-                />
-                {workSpaces.length > 1 && (
-                  <button onClick={() => handleDeleteWorkspace(e.id)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px"><path d="m291-240-51-51 189-189-189-189 51-51 189 189 189-189 51 51-189 189 189 189-51 51-189-189-189 189Z" /></svg>
-                  </button>
-                )}
-              </div>
-              <button
-                className={style["desktopPreview"]}
-                onClick={() => handleSwitchWorkspace(e.id)}
-                style={{
-                  aspectRatio: `${resolution[0]} / ${resolution[1]}`,
-                  borderColor: e.setting.color
-                }}
-              >
-                <div className={style["indexNumber"]}><span style={{ color: e.setting.color }}>{`# ${i}`}</span></div>
-                <div className={style["backdrop"]} />
-                <div className={style["windows"]} >
-                  {(e.id === nowWorkSpace && liveSnapshotRef.current?.id === nowWorkSpace
-                    ? liveSnapshotRef.current.snapshot
-                    : e.status
-                  ).filter(win => !win.isMinimized).map((win, i) => <div
-                    className={style["win"]}
-                    key={i}
-                    style={{ zIndex: win.zIndex }}
-                  >
-                    <div
-                      className={style["position"]}
-                      style={{
-                        borderColor: color.bright(e.setting.color, .8),
-                        backgroundColor: color.bright(e.setting.color, .3) + "80",
-                        top: win.rect.top + "%",
-                        left: win.rect.left + "%",
-                        width: win.rect.width + "%",
-                        height: win.rect.height + "%",
-                      }}
-                    />
-                  </div>)}
-                </div>
-                <Background bg={e.setting.wallpaper} />
-              </button>
-            </div>
-          ))}
-          <button onClick={handleAddWorkspace} className={style["add"]}>
-            {t("workSpaceManager.newDesktop")}
-          </button>
-        </div>
+      <div
+        className={style["workSpaceMgr"]}
+      >
+        <WorkSpacesMenu
+          workSpaces={workSpaces}
+          resolution={resolution}
+          nowWorkSpace={nowWorkSpace}
+          handleSwitchWorkspace={handleSwitchWorkspace}
+          handleDeleteWorkspace={handleDeleteWorkspace}
+          handleAddWorkspace={handleAddWorkspace}
+          inputKeyEvent={inputKeyEvent}
+        />
       </div>
 
       <div className={style["textArea"]}>
@@ -11683,19 +12622,18 @@ const Desktop = () => {
         onClick={e => e.isTrusted ? setWorkSpaceEditor(false) : ""}
       >
 
-        <div className={style["wsEditor"]}>
-          <div className={style["backdrop"]} />
-          <div className={style["index"]}>
-            <span>{"# " + workSpaces.findIndex(w => w.id === nowWorkSpace)}</span>
-          </div>
-        </div>
+        <WorkspaceTips
+          nowWorkSpace={nowWorkSpace}
+          workSpaces={workSpaces}
+          workSpaceEditor={workSpaceEditor}
+        />
 
         <div className={style["WindowSelector"]}>
 
         </div>
 
         <div className={style["Buttons"]}>
-          <div className={clsx(style["MainArea"], startMenu ? style["startMenu"] : "")}>
+          <div className={clsx(style["MainArea"], startMenu && style["startMenu"])}>
 
             <div className={style["StartMenu"]}
               onDrop={e => { setStartMenu(false); }}
@@ -11764,10 +12702,7 @@ const Desktop = () => {
                       [
                         t("startMenuSide.appSetting"),
                         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"><path d="M433-80q-27 0-46.5-18T363-142l-9-66q-13-5-24.5-12T307-235l-62 26q-25 11-50 2t-39-32l-47-82q-14-23-8-49t27-43l53-40q-1-7-1-13.5v-27q0-6.5 1-13.5l-53-40q-21-17-27-43t8-49l47-82q14-23 39-32t50 2l62 26q11-8 23-15t24-12l9-66q4-26 23.5-44t46.5-18h94q27 0 46.5 18t23.5 44l9 66q13 5 24.5 12t22.5 15l62-26q25-11 50-2t39 32l47 82q14 23 8 49t-27 43l-53 40q1 7 1 13.5v27q0 6.5-2 13.5l53 40q21 17 27 43t-8 49l-48 82q-14 23-39 32t-50-2l-60-26q-11 8-23 15t-24 12l-9 66q-4 26-23.5 44T527-80h-94Zm7-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z" /></svg>,
-                        () => createWindow(wmRef, {
-                          type: "setting",
-                          data: "NONE"
-                        })
+                        () => acts.windows.setting()
                       ],
                       [
                         t("runBox"),
@@ -11785,7 +12720,16 @@ const Desktop = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H160v400Zm187-200-76-76q-12-12-11.5-28t12.5-28q12-11 28-11.5t28 11.5l104 104q12 12 12 28t-12 28L328-308q-11 11-27.5 11.5T272-308q-11-11-11-28t11-28l75-76Zm173 160q-17 0-28.5-11.5T480-320q0-17 11.5-28.5T520-360h160q17 0 28.5 11.5T720-320q0 17-11.5 28.5T680-280H520Z" /></svg>,
                         () => Kiasole.toggle(),
                       ],
-                    ] as ([string, JSX.Element, () => {}] | [string, JSX.Element, () => {}, boolean])[]).map((e, i) => <button key={i} hover-tips={e[0]} onClick={(ev) => { ev.stopPropagation(); e[2](); setStartMenu(false) }} style={{ marginTop: e[3] ? "auto" : "" }}>{e[1]}</button>)
+                    ] as ([string, JSX.Element, () => {}] | [string, JSX.Element, () => {}, boolean])[]).map((e, i) => <button
+                      key={i}
+                      hover-tips={e[0]}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        e[2]();
+                        setStartMenu(false)
+                      }}
+                      style={{ marginTop: e[3] ? "auto" : "" }}
+                    >{e[1]}</button>)
                   }
                 </div>
               </div>
@@ -11853,11 +12797,7 @@ const Desktop = () => {
                     [
                       t("windowsType.tmpList"),
                       <svg xmlns="http://www.w3.org/2000/svg" height="50px" viewBox="0 -960 960 960" width="50px"><path d="M378-329q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z" /></svg>,
-                      () => {
-                        createWindow(wmRef, {
-                          type: "tmp"
-                        })
-                      },
+                      () => acts.windows.tempList(),
                       {
                         type: "temp",
                       }
@@ -11869,6 +12809,9 @@ const Desktop = () => {
                     }}
                   >
                     <button
+                      className={clsx(
+                        dropMenuBtn === i && style["dropReady"]
+                      )}
                       onClick={() => {
                         btn[2]()
                         setStartMenu(false)
@@ -11879,17 +12822,19 @@ const Desktop = () => {
                       onDrag={() => setStartMenu(false)}
 
                       onDragEnter={(e) => {
-                        e.preventDefault();
                         clearTimeout(dragTimeOut.current);
-
+                        e.preventDefault();
+                        setDropMenuBtn(i)
                         dragTimeOut.current = setTimeout(() => {
-                          setStartMenu(false);
                           btn[2]();
-                        }, 250);
+                          setDropMenuBtn(-1)
+                          setStartMenu(false);
+                        }, 300);
                       }}
 
                       onDragLeave={(e) => {
                         e.preventDefault();
+                        setDropMenuBtn(-1)
                         clearTimeout(dragTimeOut.current);
                       }}
 
@@ -12125,15 +13070,17 @@ const Desktop = () => {
               })}
             </div>
             <div className={style["Right"]}>
-              {nowSetting.appearance.clockFormat.map((e, i) => <div>{cnvFormat.clock(clock, e)}</div>)}
+              <TaskbarClock formats={nowSetting.appearance.clockFormat} />
             </div>
           </div>
         </div>
 
-        <Background bg={background} />
+        <Background bg={background} key={nowWorkSpace} />
       </div>
 
-      <Background bg={background} />
+      <div className={style["BlurBackground"]}>
+        <Background bg={background} key={nowWorkSpace} />
+      </div>
     </div >
   )
 }
@@ -12518,11 +13465,16 @@ const App = () => {
   [nowSetting, _setNowSetting] = useState(newEmptyAccount.setting);
   [nowSaveInfo, setNowSaveInfo] = useState(newEmptyAccount.saveInfo);
   [importing, setImporting] = useState<boolean>(false)
-
+  nowSetting.appearance.scale
   const res = fuckingState.resolution()
   const frsStart = useRef(true)
 
   useEffect(() => {
+    const mousedown = (e: MouseEvent) => {
+      if (e.button === 4 || e.button === 3)
+        e.preventDefault();
+    }
+
     const keydown = (e: KeyboardEvent) => {
       switch (e.key) {
         case "AltLeft":
@@ -12532,10 +13484,16 @@ const App = () => {
       }
     }
 
+    document.addEventListener("mousedown", mousedown)
+    document.addEventListener("mouseup", mousedown)
     document.addEventListener("keydown", keydown)
 
+
     return () => {
+      document.removeEventListener("mousedown", mousedown)
+      document.removeEventListener("mouseup", mousedown)
       document.removeEventListener("keydown", keydown)
+
     }
   }, [])
 
@@ -12636,7 +13594,7 @@ const App = () => {
         <span className={winStyle["text"]}>{appName + (guestMode ? ` ( Gust Mode ) ` : "")}</span>
         <span className={winStyle["btns"]}>
           <div className={clsx(winStyle["DropArea"], style["electron-drag"])}></div>
-          <div className={winStyle["min"]} onClick={() => ELECTRON_ACT("MINI")} onContextMenu={() => ELECTRON_ACT("HIDE")}>
+          <div className={winStyle["btn3"]} onClick={() => ELECTRON_ACT("MINI")} onContextMenu={() => ELECTRON_ACT("HIDE")}>
             <div className={winStyle["icon"]}>
               <svg width="22" height="3" viewBox="0 0 22 3" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M0 0L20 0" fill="none" strokeWidth="2" strokeLinecap="round" transform="translate(1 1)" />
@@ -12644,7 +13602,7 @@ const App = () => {
             </div>
             <div className={winStyle["bg"]} />
           </div>
-          <div className={winStyle["res"]} onClick={() => ELECTRON_APP_INFO.isMaximized ? ELECTRON_ACT("RSTR") : ELECTRON_ACT("MAXI")}>
+          <div className={winStyle["btn2"]} onClick={() => ELECTRON_APP_INFO.isMaximized ? ELECTRON_ACT("RSTR") : ELECTRON_ACT("MAXI")}>
             <div className={winStyle["icon"]}>
               {ELECTRON_APP_INFO.isMaximized ? (
                 <svg width="22" height="6" viewBox="0 0 22 6" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -12658,7 +13616,7 @@ const App = () => {
             </div>
             <div className={winStyle["bg"]} />
           </div>
-          <div className={winStyle["cls"]} onClick={() => ELECTRON_ACT("CLOSE")} onContextMenu={() => ELECTRON_ACT("KILL")}>
+          <div className={winStyle["btn1"]} onClick={() => ELECTRON_ACT("CLOSE")} onContextMenu={() => ELECTRON_ACT("KILL")}>
             <div className={winStyle["icon"]}>
               <svg width="28.28" height="28.28" viewBox="0 0 28.28 28.28" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <g>
@@ -12705,10 +13663,15 @@ export default function () {
 
     if (urlParams.has("electron")) {
       electronMode = true;
+      canCors = true;
     }
 
     if (urlParams.has("storage")) {
       storage = urlParams.get("storage")!
+    }
+
+    if (urlParams.has("forseUseProxy")) {
+      forseUseProxy = true
     }
 
     WSA = new WSAction.WorkSpaceActions(storage, () => {
@@ -12720,4 +13683,4 @@ export default function () {
     <HeadSetting title={appName + (guestMode ? ` ( Gust Mode ) ` : "")} />
     {READY && <App />}
   </>)
-}
+}   

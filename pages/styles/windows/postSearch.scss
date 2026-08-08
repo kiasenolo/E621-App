@@ -1,7 +1,8 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .postSearch,
 .pool {
+
   .BackgroundMask,
   .PaginationControls,
   .TagEditor,
@@ -19,7 +20,7 @@
     display: grid;
 
     .InnerFrame {
-      background-color: Color(.1, .9);
+      background-color: Color(.1, .5);
     }
   }
 
@@ -37,7 +38,7 @@
 
         *:not(:hover, :active),
         &:not(:hover, :active) {
-          background: Color(.01, .5) !important;
+          background: Color(.01, .3) !important;
         }
 
         &:disabled {
@@ -188,6 +189,10 @@
     @include GridFrame();
     overflow: hidden;
     padding: 0 25px;
+    $pin: 53px;
+    $pout: 0px;
+    mask-image: linear-gradient(0deg, #0000 $pout, #000 $pin, #000 calc(100% - $pin), #0000 calc(100% - $pout));
+    ;
 
     .InnerFrame {
       overflow: auto;

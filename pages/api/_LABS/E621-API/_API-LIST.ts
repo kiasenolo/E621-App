@@ -8,7 +8,9 @@ import { TAG_MATCH } from "./tags/name_match";
 
 import { POOL_GET } from "./pools/get";
 
-import { GET_PALETTE } from "./other/palette";
+import { WIKI_GET } from "./wiki/get";
+import { WIKI_SEARCH_BODY } from "./wiki/search_body";
+import { WIKI_SEARCH_TITLE } from "./wiki/search_title";
 
 export const LABS_E621_API = {
   posts: {
@@ -22,8 +24,10 @@ export const LABS_E621_API = {
   pools: {
     get: POOL_GET,
   },
-  other: {
-    proxy: GET_PALETTE,
+  wiki: {
+    get: WIKI_GET,
+    searchBody: WIKI_SEARCH_BODY,
+    searchTitle: WIKI_SEARCH_TITLE,
   },
 }
 

@@ -1,4 +1,4 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 @use "./styles/styles";
 
 @mixin KIASE_STYLE() {
@@ -88,6 +88,10 @@
         }
       }
     }
+  }
+
+  * {
+    font-family: genseki-font-tw, hack-nerd-font;
   }
 
   .Menu {
@@ -237,6 +241,8 @@
 }
 
 #Frame {
+  overflow: hidden;
+
   ::-webkit-scrollbar {
     width: 0;
     height: 0;
@@ -290,7 +296,7 @@
     .Importing {
       z-index: 4;
       background-color: Color(.02, .6);
-      backdrop-filter: $blur-effect-5;
+      backdrop-filter: $blur-effect-2;
       @include GridFrame();
       transition: ease-out .5s;
 
@@ -425,11 +431,17 @@
               outline: none;
               background-color: #0000;
 
+              &:hover,
+              &:focus {
+                transition: none;
+                background-color: Color(.5, .5);
+              }
             }
           }
 
           &.activ {
             background-color: Color(.5, .5);
+            background: linear-gradient(135deg, Color(.5, .7) 20%, Color(.5, .5) 100%);
           }
         }
 
@@ -507,6 +519,7 @@
       @include GridFrame();
       overflow: hidden;
       box-shadow: 0 20px 50px Color(.08, .5);
+      background-color: Color(.08);
 
       * {
         color: Color();
@@ -517,29 +530,98 @@
         @include KIASE_STYLE();
       }
 
-      .wsEditor {
-        z-index: 500;
+      .WorkspaceTips {
+        z-index: 250;
         @include GridFrame();
         pointer-events: none;
+        transition: .5s ease-in-out 2s;
         opacity: 0;
-        transition: $dt;
-        transition-duration: .3s;
 
-        .backdrop {
+        .Backdrop {
           z-index: 1;
-          background: #00000070;
-          background: linear-gradient(45deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 50%);
-
+          background: linear-gradient(150deg, Color(.1, .8) 0%, Color(.1, 0) 19%);
+          mask-image: linear-gradient(150deg, #000 10%, #0000 19%);
         }
 
-        .index {
+        .Information {
           z-index: 2;
-          display: flex;
-          justify-content: start;
-          align-items: flex-end;
-          padding: 40px;
-          font-size: 60px;
-          text-shadow: 0 0 30px #000;
+          padding: 35px;
+
+          @mixin tansTiton($dely) {
+            transition: all .5s cubic-bezier(0, .5, 0, 1) $dely, color 0s;
+          }
+
+          * {
+            text-shadow:
+              0 0 25px Color(.08),
+              0 0 15px Color(.08),
+              0 0 5px Color(.08),
+            ;
+            color: LightColor(.05);
+
+            @starting-style {
+              transform: translateX(-50px);
+            }
+          }
+
+          .name {
+            @include tansTiton(0s);
+            font-size: 50px;
+            margin-bottom: 10px;
+            letter-spacing: 5px;
+
+            @starting-style {
+              opacity: 0;
+            }
+          }
+
+          .note {
+            @include tansTiton(.1s);
+            font-size: 30px;
+            margin-bottom: 10px;
+            letter-spacing: 10px;
+            opacity: .5;
+
+            &.havNote {
+              letter-spacing: 5px;
+              opacity: 1;
+
+              @starting-style {
+                opacity: 0;
+              }
+            }
+
+            @starting-style {
+              opacity: 0;
+            }
+          }
+
+          .index {
+            @include tansTiton(.2s);
+            font-size: 25px;
+
+            @starting-style {
+              opacity: 0;
+            }
+          }
+        }
+
+        &.show {
+          transition: .2s ease-in-out 0s;
+          opacity: 1;
+
+          .Information {
+            display: block;
+          }
+        }
+
+        @starting-style {
+          transition: .2s ease-in-out 0s;
+          opacity: 1;
+
+          .Information {
+            display: block;
+          }
         }
       }
 
@@ -551,7 +633,7 @@
 
         .Run {
           z-index: 100;
-          padding-top: 20vh;
+          padding-top: 25vh;
           display: flex;
           justify-content: flex-start;
           align-items: center;
@@ -566,7 +648,7 @@
             background-color: Color(.1);
             font-size: 30px;
             padding: 10px 40px;
-            box-shadow: 0 10px 20px Color(.08, .5);
+            box-shadow: 0 10px 15px Color(.08, .4);
             margin-bottom: 20px;
           }
 
@@ -782,6 +864,10 @@
                 border: none;
                 outline: none;
 
+                * {
+                  pointer-events: none;
+                }
+
                 .icon {
                   @include FlexCenter();
                   fill: Color();
@@ -794,6 +880,7 @@
                   padding: 5px;
                 }
 
+                &.dropReady,
                 &:hover,
                 &:active {
                   background-color: Color();
@@ -862,12 +949,12 @@
                 span {
                   background-color: Color(.3);
                   color: Color();
-                  padding: 6px 30px;
+                  padding: 10px 150px;
                 }
 
                 &.activ {
-                  border: 5px solid #0000;
-                  outline: 2px solid Color(1, .5);
+                  border: 10px solid #0000;
+                  outline: 3px solid Color(1, .5);
                   transform: scale(1.2);
 
                   *,
@@ -947,9 +1034,13 @@
       }
 
       .Buttons {
-        display: grid;
-        grid-template-rows: 1fr auto;
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
+
+        .MainArea {
+          flex-grow: 1;
+        }
 
         .Bar {
           overflow: hidden;
@@ -982,10 +1073,15 @@
       }
     }
 
-    >.Background {
-      scale: 1.1;
-      filter: blur(50px);
-      opacity: .1;
+    .BlurBackground {
+      @include GridFrame();
+      overflow: hidden;
+
+      >.Background {
+        scale: 1.1;
+        filter: blur(50px);
+        opacity: .1;
+      }
     }
 
     &.hide {
@@ -1010,9 +1106,11 @@
         }
       }
 
-      >.Background {
-        @starting-style {
-          opacity: 0;
+      .BlurBackground {
+        >.Background {
+          @starting-style {
+            opacity: 0;
+          }
         }
       }
     }
@@ -1037,13 +1135,13 @@
       .textArea {
         .name {
           input {
-            translate: 0 -150%;
+            translate: 0 -140%;
           }
         }
 
         .note {
           input {
-            translate: 0 130%;
+            translate: 0 150%;
           }
         }
 
@@ -1079,8 +1177,10 @@
         }
       }
 
-      >.Background {
-        opacity: .5;
+      .BlurBackground {
+        >.Background {
+          opacity: .5;
+        }
       }
     }
   }

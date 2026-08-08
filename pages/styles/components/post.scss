@@ -1,4 +1,4 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .Post {
   display: grid;
@@ -64,7 +64,7 @@
             white-space: nowrap;
           }
 
-          .name {
+          .more {
             z-index: 3;
             background-color: Color(.3, $opacity);
           }

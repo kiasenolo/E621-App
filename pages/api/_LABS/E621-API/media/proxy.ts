@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
-const USER_AGENT = "KIASENOLO_E621App/0.1.0 (OpenSource project)";
+const USER_AGENT = "KIASENOLO_E621App/0.0.0 (by KIASENOLO; kilo93466@gmail.com)";
 
 const ALLOWED_HOSTS = [
   "static1.e621.net",

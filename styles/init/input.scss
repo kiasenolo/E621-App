@@ -2,6 +2,7 @@
 @use "sass:meta";
 
 $_current-style-clr-func: null;
+$_active-clr-func: null;
 
 @function InpColor($value: 1, $opacity: 1) {
   @if $_current-style-clr-func ==null {
@@ -201,6 +202,11 @@ $_current-style-clr-func: null;
         outline: none;
         border-radius: 5px;
 
+        *,
+        & {
+          user-select: none;
+        }
+
         &:hover {
           background: InpColor(.6);
         }
@@ -221,7 +227,7 @@ $_current-style-clr-func: null;
           }
 
           &:active {
-            cursor: Cursor(ew-resize,act);
+            cursor: Cursor(ew-resize, act);
           }
         }
       }
@@ -231,6 +237,11 @@ $_current-style-clr-func: null;
         padding: 3px;
         border: 2px solid InpColor();
         border-radius: 6px;
+
+        *,
+        & {
+          user-select: none;
+        }
 
         &:hover {
           background-color: InpColor();

@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import functions from "@/data/module/functions";
+
+/* 
+ * 這個東西是丟上去伺服器的時候才會用到
+ * true  :  強制不使用proxy
+ * false :  用不用proxy由參數決定
+ */
+export const dontUseProxy = true
 
 export function LABS_API_GENERATER<T1, T2>(
   routePath: string,
@@ -19,9 +25,16 @@ export function LABS_API_GENERATER<T1, T2>(
 
   const apiPath = getRoutePath(routePath);
 
-  // 前端用的
-  const useApi = async (options: T1) => {
-    const res = await fetch(apiPath + "?_options=" + functions.toBase64(JSON.stringify(options)))
+  const useApi = async (options: T1, native?: boolean) => {
+    if (native || dontUseProxy) return await calc(options)
+
+    const res = await fetch(apiPath, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(options)
+    })
 
     if (!res.ok) {
       const errJson = await res.json();
@@ -34,76 +47,16 @@ export function LABS_API_GENERATER<T1, T2>(
   };
 
   const calcApi = async (req: NextApiRequest, res: NextApiResponse): Promise<void> => {
-    let raw_option = "";
+    if (dontUseProxy) return res.status(404).json({ "msg": "nope" });
+    const _options = req.body as T1;
 
-    try {
-      const { _options } = req.query;
-
-      if (_options) {
-        raw_option = typeof _options === "string" ? _options : _options[0]
-
-        let options: T1;
-        try {
-          const decoded = functions.fromBase64(raw_option);
-          options = JSON.parse(decoded);
-        } catch {
-          throw Error("JSONERR")
-        }
-
-        const out: Awaited<T2> = await calc(options)
-        return res.json(out)
-
-      } else {
-        throw Error("EMPTY")
-      }
-    } catch (_err) {
-      const err = _err as Error
-
-      switch (err.message) {
-        case "EMPTY": {
-          res.status(400).json({
-            error: "你踏馬沒給東西啊",
-            code: err.message
-          })
-          break;
-        }
-
-        case "JSONERR": {
-          res.status(400).json({
-            error: "你給的啥啊？JSON他媽解不出來啊",
-            code: err.message
-          })
-          break;
-        }
-
-        default: {
-          console.error("Server Error Stack:", err);
-          res.status(500)
-
-          let parsedOption = null;
-          try {
-            if (raw_option) parsedOption = JSON.parse(functions.fromBase64(raw_option));
-          } catch (e) {
-            parsedOption = "無法解析的原始資料";
-          }
-
-          return res.json({
-            error: "很好 死了",
-            des: {
-              name: err.name,
-              message: err.message,
-              stack: process.env.NODE_ENV === 'development' ? err.stack?.split("\n") : "Stack hidden in production",
-              cause: err.cause
-            },
-            text: "這是你傳進來的東西",
-            option: {
-              base64: raw_option,
-              json: parsedOption
-            },
-          })
-        }
-      }
+    if (_options) {
+      const out: Awaited<T2> = await calc(_options)
+      return res.json(out)
+    } else {
+      throw Error("EMPTY")
     }
+
   }
 
   return {

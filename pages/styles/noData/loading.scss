@@ -1,4 +1,4 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .Fetching {
   @include GridFrame();
@@ -95,6 +95,38 @@
 
     @starting-style {
       opacity: 0;
+    }
+  }
+
+  &.Loading {
+    translate: 0 41%;
+
+    .Cers {
+
+      .cer {
+        translate: 45% 0;
+        filter: drop-shadow(0 0 3px Color(1, .5));
+      }
+    }
+
+    .Line {
+      $size : 8px;
+      $p1: calc(50% + calc($size / 2));
+      $p2: calc(50% - calc($size / 2));
+
+      $skew : -10deg;
+      $scale : 1.1;
+
+      clip-path: polygon(0 $p2, 100% $p2, 100% $p1, 0 $p1);
+      transform: skewX($skew) scaleX($scale);
+      $cerTransform: skewX(calc(-1 * $skew)) scaleX(calc(1 / $scale));
+
+      .Fill {
+        >.Cers {
+          transform: $cerTransform;
+          filter: drop-shadow(0 0 5px Color(.5));
+        }
+      }
     }
   }
 }

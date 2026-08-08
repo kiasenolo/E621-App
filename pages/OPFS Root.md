@@ -1,0 +1,22 @@
+- /E621-App[Main]/
+  - appStatus.json
+  - [userId]/
+    - setting.json
+    - saveInfo.json
+    - state.json
+    - workspaces/
+      - [uuid]/
+        - setting.json
+        - preview.json
+        - note.json
+        - status.json
+    - history/
+      - search.json
+      - color.json
+      - wallpaper.json
+      - download.json
+    - saves/
+      - tmpList/
+        - [uuid].json
+      - download.json
+      - wallpapers.json

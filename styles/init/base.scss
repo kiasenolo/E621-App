@@ -2,6 +2,7 @@
 @use "sass:meta";
 
 $_current-style-clr-func: null;
+$_active-clr-func: null;
 
 @function BasColor($value: 1, $opacity: 1) {
   @if $_current-style-clr-func ==null {

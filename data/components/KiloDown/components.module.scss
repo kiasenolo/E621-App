@@ -1,4 +1,4 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .After {
   clip-path: polygon(0 0, 0% 100%, 100% 0);
@@ -113,25 +113,19 @@
 
   &::selection {
     background-color: #0000;
-
-    span {
-      color: #0000;
-    }
   }
 
-  &::selection {
-    background-color: #0000;
-
-    span {
-      color: #0000;
-    }
+  span::selection {
+    color: #0000;
   }
 
-  &:hover::selection,
-  &:active::selection {
-    background: Color(.3);
+  &:hover,
+  &:active {
+    &::selection {
+      background: Color(.3);
+    }
 
-    span {
+    span::selection {
       color: LightColor(.5);
     }
   }

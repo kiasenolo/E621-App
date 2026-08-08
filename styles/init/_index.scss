@@ -1,6 +1,8 @@
-@use "base.scss" as *;
-@use "input.scss" as *;
-@use "element.scss" as *;
+@use "./base.scss" as *;
+@use "./input.scss" as *;
+@use "./element.scss" as *;
+
+@use "./font.scss";
 
 @include BaseStyleInit("Color");
 @include ElementStyleInit("Color");

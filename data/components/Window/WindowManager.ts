@@ -40,6 +40,9 @@ export type WindowManagerEventMap<T> = {
   "btn-min": { id: string; preventDefault: () => void };
   "btn-max": { id: string; preventDefault: () => void };
   "btn-close": { id: string; preventDefault: () => void };
+  "minimize": { id: string };
+  "maximize": { id: string };
+  "restore": { id: string };
 };
 
 export type WindowSnapshot<T = undefined> = {
@@ -142,6 +145,7 @@ export type CreateWindowOptions<T> = {
   }
   events?: {
     onClose?: () => void
+    customButton?: (id: string) => void
   }
 };
 
@@ -726,6 +730,7 @@ export class WindowManager<T = undefined> {
     win.isMaximized = true;
     win.isSnapped = false;
     this.updateWindow(id, { rect: { left: 0, top: 0, width: 100, height: 100 } });
+    this.emit("maximize", { id });
   }
 
   public restoreWindow = (id: string, targetRect?: WindowRect) => {
@@ -736,6 +741,7 @@ export class WindowManager<T = undefined> {
     win.isSnapped = false;
     win.preMaximizedRect = undefined;
     this.updateWindow(id, { rect: restoreTo });
+    this.emit("restore", { id });
   }
 
   public minimizeWindow = (id: string): void => {
@@ -746,6 +752,7 @@ export class WindowManager<T = undefined> {
       win.isMinimized = true;
       win.focused = false;
       this.notify();
+      this.emit("minimize", { id: win.id });
       if (wasFocused) {
         this.emit("blur", { id: win.id });
         setTimeout(() => { this.focusNextActiveWindow(id); }, this.CLOSE_ANIMATION_DURATION);
@@ -1017,7 +1024,10 @@ export class WindowManager<T = undefined> {
     const windowToFocus = this.windowMap.get(id);
     if (!windowToFocus || windowToFocus.isClosing) return;
 
-    if (windowToFocus.isMinimized) windowToFocus.isMinimized = false;
+    if (windowToFocus.isMinimized) {
+      windowToFocus.isMinimized = false;
+      this.emit("restore", { id });
+    }
 
     this.focusHistory = this.focusHistory.filter((historyId) => historyId !== id);
     this.focusHistory.push(id);

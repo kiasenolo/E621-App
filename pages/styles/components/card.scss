@@ -1,9 +1,9 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .Card {
   width: 200px;
   height: 250px;
-  background: Color(.5);
+  background: Color(.5, .2);
   overflow: hidden;
   border: none;
   outline: none;

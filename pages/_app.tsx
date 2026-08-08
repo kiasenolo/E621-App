@@ -7,6 +7,7 @@ import functions from '@/data/module/functions'
 import HeadSetting from '@/data/components/HeadSetting'
 import style from './_app.module.scss'
 import consoleStyle from './_app.styles/console.module.scss'
+import Head from 'next/head'
 
 export let _powerSaveingMode = true
 export let _setPowerSaveingMode: Dispatch<SetStateAction<boolean>> = () => { }
@@ -1721,7 +1722,27 @@ function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <Components.SVGFilters />
-
+      {<Head>
+        <link rel="icon" href="/favicon.svg" sizes="any" />
+        {[
+          "act-default",
+          "act-ew-resize",
+          "act-nesw-resize",
+          "act-ns-resize",
+          "act-nwse-resize",
+          "act-pointer",
+          "act-text",
+          "act-url",
+          "hov-default",
+          "hov-ew-resize",
+          "hov-nesw-resize",
+          "hov-ns-resize",
+          "hov-nwse-resize",
+          "hov-pointer",
+          "hov-text",
+          "hov-url",
+        ].map((e, i) => <link key={i} rel="preload" href={`/_SYSTEM/Cursor/${e}.svg`} as="image" />)}
+      </Head>}
       <HeadSetting />
       <div
         style={{ zoom: appScale + "%" }}

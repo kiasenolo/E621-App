@@ -22,7 +22,7 @@ $blur-effect-5: blur(var(--blur-effect-5)) $noise-overlay;
   @return rgba(calc(var(--theme-color2-r) + (255 * $num )), calc(var(--theme-color2-g) + (255 * $num )), calc(var(--theme-color2-b) + (255 * $num )), $opacit );
 }
 
-@function Cursor($type: default, $pref:hov) {
+@function Cursor($type: default, $pref: hov) {
   $addon: 0 0;
   $_type: $type;
 
@@ -45,13 +45,20 @@ $blur-effect-5: blur(var(--blur-effect-5)) $noise-overlay;
 
   * {
     transition: none;
-    font-family: hack-nerd-font-mono;
+    font-family: hack-nerd-font-mono, monospace;
   }
 }
 
 @mixin BgCntr() {
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
+}
+
+@mixin MskCntr() {
+  mask-size: cover;
+  mask-position: center;
+  mask-repeat: no-repeat;
 }
 
 @mixin Freedom() {

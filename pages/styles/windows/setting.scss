@@ -1,4 +1,4 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .Setting {
   .home {
@@ -106,11 +106,12 @@
       .list {
         display: flex;
         flex-direction: column;
+        background-color: Color(.08, .2);
 
         .buttonFrame {
           @include GridFrame();
           opacity: 0;
-          transform: translateY(20px);
+          transform: translateY(30px) scale(.8);
 
           button,
           div {
@@ -580,11 +581,13 @@
           font-size: 15px;
           padding: 8px 20px;
           background-color: Color(.15);
+          transform: scale(.95);
 
           &.activ {
             transition: none;
             background-color: Color();
             color: #000 !important;
+            transform: none;
           }
         }
       }

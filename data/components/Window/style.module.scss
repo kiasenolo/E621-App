@@ -1,22 +1,22 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
 .window {
   z-index: 1;
   @include Freedom();
 
-  transform: scale(0.7);
+  transform: scale(0.5);
   opacity: 0;
 
-  background-color: Color(.1, .7);
+  background-color: Color(.1, .5);
   backdrop-filter: $blur-effect;
   border-radius: 0px;
   display: grid;
   grid-template-rows: auto 1fr;
-  filter: blur(20px);
+  filter: blur(10px);
 
   transition: all cubic-bezier(0, 1, 0, 1) .5s, z-index 0s;
 
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.319);
+  box-shadow: 0 10px 50px Color(.08, .5);
   outline: 3px solid Color(1, .05);
 
   * {
@@ -36,7 +36,8 @@
     overflow: hidden;
 
     .text {
-      padding: 5px;
+      padding: 7px;
+      font-size: 15px;
       text-align: center;
       pointer-events: none;
       user-select: none;
@@ -47,10 +48,6 @@
       $width : 70px;
       $offset : 20px;
       $skew: 30deg;
-
-      $c : Color();
-      $r : Color(.8);
-      $m : Color(.6);
 
       display: flex;
       align-items: stretch;
@@ -84,52 +81,42 @@
         }
 
         &:hover {
-          filter: saturate(1.2);
+          background-color: Color();
 
           *,
           & {
+            stroke: #000;
             transition: none;
-          }
-
-          >.bg {
-            opacity: .3;
           }
         }
       }
 
-      .cls {
+      .btn1 {
         width: $width + $offset;
 
         >.icon {
           z-index: 2;
           transform: skewX(-$skew) translateX(calc(-1 * $offset / 2));
-          stroke: $c;
-        }
-
-        >.bg {
-          background-color: $c;
         }
       }
 
-      .res {
-        >.icon {
-          stroke: $r;
-        }
+      @mixin btn($indx, $clr) {
+        .btn#{$indx} {
+          >.icon {
+            stroke: $clr;
+          }
 
-        >.bg {
-          background-color: $r;
+          >.bg {
+            background-color: $clr;
+          }
         }
       }
 
-      .min {
-        >.icon {
-          stroke: $m;
-        }
 
-        >.bg {
-          background-color: $m;
-        }
-      }
+      @include btn(1, Color());
+      @include btn(2, Color(.8));
+      @include btn(3, Color(.6));
+      @include btn(4, Color(.5));
     }
   }
 
@@ -264,10 +251,7 @@
   &.blurred {
     box-shadow: 0 5 px 20px rgba(0, 0, 0, 0.223);
 
-    .title {
-      filter: grayscale(.2) brightness(.9);
-    }
-
+    .title,
     .content {
       filter: grayscale(.2) brightness(.9);
     }
@@ -281,27 +265,28 @@
       height 0s,
     ;
     outline: 3px solid Color(1, .3);
-    background-color: Color(.08, .5);
+    background-color: Color(.08, .3);
 
-    >* {
-      opacity: .6;
+    .title,
+    .content {
+      opacity: .4;
     }
   }
 
   &.full {
-    transition: cubic-bezier(0, 1, 0, 1) .5s;
+    transition: cubic-bezier(0, .55, 0, 1) .4s;
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
     height: 100% !important;
     border-radius: 0;
-    background-color: Color(.08, .8);
+    background-color: Color(.08, .7);
   }
 
   &.close {
     transition: all cubic-bezier(.9, -0.01, .42, .99) .25s;
-    transform: scale(0.9);
-    filter: blur(20px);
+    transform: scale(1.2);
+    filter: blur(10px);
     opacity: 0;
     pointer-events: none;
 

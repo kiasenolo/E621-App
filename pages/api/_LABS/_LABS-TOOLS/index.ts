@@ -1,4 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next/types";
+import path from "path";
+import { fileURLToPath } from "url";
 
 export default function hendler(_: NextApiRequest, res: NextApiResponse) {
   res.json([
