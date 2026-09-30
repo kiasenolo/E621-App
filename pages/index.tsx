@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useRef, useState, useMemo, RefObject, ReactNode, MouseEventHandler, Dispatch, SetStateAction, JSX } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, RefObject, ReactNode, MouseEventHandler, Dispatch, SetStateAction, JSX, CSSProperties } from "react";
 import style from "./style.module.scss";
 import winStyle from "@/data/components/Window/style.module.scss";
-import { LABS_E621_API } from "@/pages/api/_LABS/E621-API/_API-LIST";
 import { defaultWMSettings, SnapPosition, WindowAnchor, WindowInstance, WindowManager, WindowManagerEventMap, WindowSnapshot, WMSettings } from "@/data/components/Window/WindowManager";
 import { _app, Kiasole, newInput } from "@/pages/_app";
 import { E621 } from "@/pages/api/_LABS/E621-API/types/e621";
 import { Button } from "./components/Button";
 import { WindowRect } from "@/data/components/Window/Window";
-import { makeQuery } from "@/pages/api/_LABS/E621-API/lib/e621-core";
-import { cloneDeep, merge } from "lodash";
+import { E621_API_CORE, makeQuery } from "@/pages/api/_LABS/E621-API/lib/e621-core";
+import { cloneDeep, merge, padStart } from "lodash";
 import functions from "@/data/module/functions";
 import Viewer from "@/data/components/Viewer";
 import KiloDown from "@/data/components/KiloDown";
@@ -26,6 +25,55 @@ import useLocalStorage, { SetValue } from "@/data/module/use/LocalStorage";
 import Dexie, { Table } from 'dexie';
 import { dontUseProxy } from "@/pages/api/_LABS/_LABS-TOOLS/_labsApiGenerater";
 const fs = opfs.promises
+
+namespace ElectrApiType {
+  export interface MenuItemSpec {
+    id?: string;
+    label?: string;
+    type?: 'normal' | 'separator' | 'submenu' | 'checkbox' | 'radio';
+    role?: string;
+    accelerator?: string;
+    enabled?: boolean;
+    visible?: boolean;
+    checked?: boolean;
+    submenu?: MenuItemSpec[];
+  }
+
+  export interface MenuClickDetail {
+    id: string;
+    label: string;
+    type: 'normal' | 'checkbox' | 'radio';
+    checked: boolean;
+  }
+
+  export type WindowAction = 'MINI' | 'MAXI' | 'RSTR' | 'HIDE' | 'CLOSE' | 'KILL';
+
+  export type Unsubscribe = () => void;
+
+  export interface ElectronAPI {
+    setMenu(template: MenuItemSpec[] | null): void;
+    windowAction(act: WindowAction): void;
+    setTrayName(name: string): void;
+    appReady(): void;
+    onWinInfo(cb: (info: ELECTRON_APP_INFO_TYPE) => void): Unsubscribe;
+    onMenuClick(cb: (info: MenuClickDetail) => void): Unsubscribe;
+  }
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectrApiType.ElectronAPI;
+  }
+
+  interface DocumentEventMap {
+    'APP-MENU-CLICK': CustomEvent<ElectrApiType.MenuClickDetail>;
+    'APP-INFO': CustomEvent<ELECTRON_APP_INFO_TYPE>;
+  }
+}
+
+const defaultE926 = "https://e926.net"
+
+const apiCore = new E621_API_CORE()
 
 const devopts = {
   askYouBeforeYouLeave: !false,
@@ -57,12 +105,37 @@ let storage = "Main"
 
 let forseUseProxy = false;
 let canCors = false
-const nativeFetch = () => !forseUseProxy;
 const nonePrxy = () => canCors ? false : dontUseProxy;
 
 const GetNowTime = () => new Date().getTime();
 
 const MakeID = () => GetNowTime().toString();
+
+/* 我已經受夠了手動換源的日子了 我需要這個神奇東西 */
+namespace iNeedThis {
+  export const STATIC_HOST = /https:\/\/static(\d*)\.e621\.net\//;
+
+  export function toE926Static<T extends string | null | undefined>(url: T, enabled = true): T {
+    if (!enabled) return url;
+    if (!url) return url;
+    return url.replace(STATIC_HOST, "https://static$1.e926.net/") as T;
+  }
+
+  export function normalizePost(post: E621.Post, enabled = true): E621.Post {
+    if (!enabled) return post;
+    return {
+      ...post,
+      file: { ...post.file, url: toE926Static(post.file.url) },
+      preview: { ...post.preview, url: toE926Static(post.preview.url) },
+      sample: { ...post.sample, url: toE926Static(post.sample.url) },
+    };
+  }
+}
+
+const baseUrlList: [string, string][] = [
+  [defaultE926, "E926"],
+  ["https://e621.net", "E621"],
+]
 
 const iconList = {
   "taskBar.postSearch": <></>,
@@ -113,6 +186,37 @@ const langList = {
     "ELECTRON.beforeUnload.no": "Nope",
     "ELECTRON.beforeUnload.cancel": "Cancel",
 
+    "ELECTRON.menu.Edit": "Edit",
+    "ELECTRON.menu.Edit.Undo": "Undo",
+    "ELECTRON.menu.Edit.Redo": "Redo",
+    "ELECTRON.menu.Edit.Cut": "Cut",
+    "ELECTRON.menu.Edit.Copy": "Copy",
+    "ELECTRON.menu.Edit.Paste": "Paste",
+    "ELECTRON.menu.Edit.Delete": "Delete",
+    "ELECTRON.menu.Edit.SelectAll": "Select All",
+
+    "ELECTRON.menu.App": "App",
+    "ELECTRON.menu.App.MINI": "Minimize",
+    "ELECTRON.menu.App.MAXI": "Maximize",
+    "ELECTRON.menu.App.RSTR": "Restore",
+    "ELECTRON.menu.App.HIDE": "Hide",
+    "ELECTRON.menu.App.CLOSE": "Close",
+    "ELECTRON.menu.App.KILL": "Forced Close",
+
+    "ELECTRON.menu.Debug": "Debug",
+    "ELECTRON.menu.Debug.devTool": "Toggle Dev Tools",
+    "ELECTRON.menu.Debug.clearConsole": "Clear Console",
+    "ELECTRON.menu.Debug.remountApp": "Remount App",
+
+    "ELECTRON.menu.BaseURL": "Base URL",
+
+    "ELECTRON.menu.WindowsManagement": "Windows Management",
+
+    "ELECTRON.menu.WorkSpace": "WorkSpace",
+    "ELECTRON.menu.WorkSpace.editor": "Toggle Workspace Editor",
+    "ELECTRON.menu.WorkSpace.next": "Next Workspace",
+    "ELECTRON.menu.WorkSpace.previous": "Previous Workspace",
+
     "Notic.Downloading": "Downloading...",
     "Notic.Downloading.done": "Download complete!",
     "Notic.Downloading.err": "Download failed",
@@ -151,6 +255,7 @@ const langList = {
     "menuButton.RestoreParentWindow": "Restore Parent Window",
     "menuButton.Clone": "Clone Window",
     "menuButton.Restore": "Restore",
+    "menuButton.Center": "Put it Center",
     "menuButton.Minimize": "Minimize",
     "menuButton.Close": "Close",
 
@@ -252,6 +357,8 @@ const langList = {
 
     /* >:components.post: */
 
+    "components.post.tagFilter": "Filter tags",
+
     "components.post.Artists": "Artists",
     "components.post.Copyrights": "Copyrights",
     "components.post.Character": "Character",
@@ -351,6 +458,11 @@ const langList = {
     "setting.Account.e621.msg": "Are you sure this username and token are correct? Remember to double-check.",
     "setting.Account.e621.msg.yes": "It's correct",
     "setting.Account.e621.msg.no": "Let me check again",
+
+    "setting.Account.e621.baseUrl.title": "E621 Base URL",
+    "setting.Account.e621.baseUrl.info.1": "The base URL of the API. Defaults to E926 (safe content only).",
+    "setting.Account.e621.baseUrl.info.2": "To view R18 content, switch to E621.",
+    "setting.Account.e621.baseUrl.info.3": "Note: E621 is blocked in some countries/regions, so requests may fail to load. That's not an app issue.",
 
     "setting.Account.language": "Language",
     "setting.Account.export/import": "Export/Import",
@@ -490,6 +602,7 @@ const langList = {
     /* >:workSpaceManager: */
 
     "workSpaceManager": "WorkSpace Manager",
+    "workSpaceManager.search.placeholder": "Search Workspace",
     "workSpaceManager.note.placeholder": "Note...",
     "workSpaceManager.name.placeholder": "Name...",
     "workSpaceManager.newDesktop": "New Desktop",
@@ -523,6 +636,37 @@ const langList = {
     "ELECTRON.beforeUnload.yes": "存",
     "ELECTRON.beforeUnload.no": "不存",
     "ELECTRON.beforeUnload.cancel": "算了沒事",
+
+    "ELECTRON.menu.Edit": "編輯",
+    "ELECTRON.menu.Edit.Undo": "撤回",
+    "ELECTRON.menu.Edit.Redo": "重做",
+    "ELECTRON.menu.Edit.Cut": "剪下",
+    "ELECTRON.menu.Edit.Copy": "複製",
+    "ELECTRON.menu.Edit.Paste": "貼上",
+    "ELECTRON.menu.Edit.Delete": "刪除",
+    "ELECTRON.menu.Edit.SelectAll": "全選",
+
+    "ELECTRON.menu.App": "應用程式",
+    "ELECTRON.menu.App.MINI": "最小化",
+    "ELECTRON.menu.App.MAXI": "最大化",
+    "ELECTRON.menu.App.RSTR": "還原",
+    "ELECTRON.menu.App.HIDE": "隱藏",
+    "ELECTRON.menu.App.CLOSE": "關閉",
+    "ELECTRON.menu.App.KILL": "強制關閉",
+
+    "ELECTRON.menu.Debug": "除錯",
+    "ELECTRON.menu.Debug.devTool": "切換開發者工具",
+    "ELECTRON.menu.Debug.clearConsole": "清除控制台",
+    "ELECTRON.menu.Debug.remountApp": "重新掛載應用程式",
+
+    "ELECTRON.menu.BaseURL": "基礎連結",
+
+    "ELECTRON.menu.WindowsManagement": "視窗管理",
+
+    "ELECTRON.menu.WorkSpace": "工作區",
+    "ELECTRON.menu.WorkSpace.editor": "切換工作區編輯器",
+    "ELECTRON.menu.WorkSpace.next": "下一個工作區",
+    "ELECTRON.menu.WorkSpace.previous": "上一個工作區",
 
     "Notic.Downloading": "下載中",
     "Notic.Downloading.done": "下載完成",
@@ -561,6 +705,7 @@ const langList = {
     "menuButton.RestoreParentWindow": "把老爸叫回來",
     "menuButton.Clone": "複製視窗",
     "menuButton.Restore": "還原",
+    "menuButton.Center": "置中",
     "menuButton.Minimize": "最小化",
     "menuButton.Close": "關閉",
 
@@ -656,6 +801,9 @@ const langList = {
     /* <:WindowsType: */
 
     /* >:components.post: */
+
+    "components.post.tagFilter": "篩選標籤",
+
 
     "components.post.Artists": "繪師",
     "components.post.Copyrights": "版權",
@@ -757,6 +905,11 @@ const langList = {
     "setting.Account.e621.msg": "確定這密碼和token是對的？記得檢查一下",
     "setting.Account.e621.msg.yes": "這對的",
     "setting.Account.e621.msg.no": "我還是再檢查一下好了",
+
+    "setting.Account.e621.baseUrl.title": "E621 Base URL",
+    "setting.Account.e621.baseUrl.info.1": "API的基礎網址 預設會是E926（只有安全內容）",
+    "setting.Account.e621.baseUrl.info.2": "想看R18可以切 E621",
+    "setting.Account.e621.baseUrl.info.3": "注意 某些國家/地區會封鎖E621 所以可能 fetch不到 不是應用程式的問題",
 
     "setting.Account.language": "語言",
 
@@ -893,6 +1046,7 @@ const langList = {
     /* >:workSpaceManager: */
 
     "workSpaceManager": "工作區管理器",
+    "workSpaceManager.search.placeholder": "搜尋工作區",
     "workSpaceManager.note.placeholder": "筆記...",
     "workSpaceManager.name.placeholder": "給你的工作區賜個名",
     "workSpaceManager.newDesktop": "新增桌面",
@@ -917,9 +1071,9 @@ const ELECTRON_APP_INFO_NOREADY: ELECTRON_APP_INFO_TYPE = {
   isMaximized: false,
 }
 
-const ELECTRON_APP_IS_READY = () => document.dispatchEvent(new CustomEvent("APP-IS-READY"));
-const ELECTRON_ACT = (act: string) => document.dispatchEvent(new CustomEvent("APP-ACTRON", { detail: { ACT: act } }));
-const ELECTRON_SET_TRAY = (name: string) => document.dispatchEvent(new CustomEvent("TRAY-NAME", { detail: { NAME: name } }));
+const ELECTRON_APP_IS_READY = () => window.electronAPI.appReady();
+const ELECTRON_ACT = (act: ElectrApiType.WindowAction) => window.electronAPI.windowAction(act);
+const ELECTRON_SET_TRAY = (name: string) => window.electronAPI.setTrayName(name);
 let [ELECTRON_APP_INFO, SET_ELECTRON_APP_INFO]: [ELECTRON_APP_INFO_TYPE, Dispatch<SetStateAction<ELECTRON_APP_INFO_TYPE>>] = [ELECTRON_APP_INFO_NOREADY, () => { }]
 
 let guestMode = false;
@@ -931,12 +1085,13 @@ type DispType<T> = [T, SetStateType<T>];
 type LocalDispType<T> = [T, SetValue<T>];
 
 let [READY, SET_READY]: DispType<boolean> = [false, () => { }]
+let [E621_BASE_URL, SET_E621_BASE_URL]: DispType<string> = [defaultE926, () => { }]
 let [APP_READY, SET_APP_READY]: DispType<boolean> = [false, () => { }]
 let [OFFLINE_MODE, SET_OFFLINE_MODE]: LocalDispType<boolean> = [false, () => { }]
 
 let usrIndx = ""
 
-let disableWindowKeyEvent = false
+let disableWindowKeyEvent = true
 
 let wmRef: RefObject<WindowManager<e621Type.defaul> | null>;
 
@@ -1645,6 +1800,7 @@ namespace workSpaceType {
       user: {
         name: string;
         avatar: BaseItem.Image;
+        baseUrl?: string
         passKey?: string;
         e621?: E621Auth;
       };
@@ -3264,6 +3420,8 @@ type createWindow = (
     id?: string,
     left?: number;
     top?: number;
+    width?: number;
+    height?: number;
     anchor?: WindowAnchor
   },
   setData?: boolean
@@ -3773,6 +3931,10 @@ const getWindowTitle = (
 ): string => {
   const offlineSuffix = options?.isOfflineMode ? " { OFFLINE DB }" : "";
 
+  const tagsToStr = (arr: string[]) => arr.length === 0 ?
+    undefined :
+    arr.map(e => e.replace(/_/g, " ")).join(",");
+
   switch (customData.type) {
     case "postSearch": {
       const { searchTags } = customData.data;
@@ -3794,7 +3956,9 @@ const getWindowTitle = (
     case "post": {
       const { postId, cachedPost } = customData.data;
       if (cachedPost) {
-        return `${t("windowsType.post")} / ${cachedPost.tags.artist.join(",")} - ${cachedPost.id}`;
+        const { artist, copyright } = cachedPost.tags
+
+        return `${t("windowsType.post")} / ${tagsToStr(artist) || tagsToStr(copyright.slice(0, 1))} - ${cachedPost.id}`;
       }
       return `${t("windowsType.post")} / ${postId}`;
     }
@@ -3837,14 +4001,6 @@ const updateAllWindowTitles = () => {
 
 /* ========================================================================================= */
 
-const E621_AUTH = () => {
-  const saveInfo = nowSaveInfo
-  return (saveInfo.user.e621 && saveInfo.user.e621.name && saveInfo.user.e621.key ? {
-    name: saveInfo.user.e621.name,
-    key: saveInfo.user.e621.key,
-  } : undefined)
-}
-
 const PERFORMANCE_SET = () => {
   const { performance } = nowSetting;
   return performance
@@ -3858,15 +4014,16 @@ const DELAY_EFFECT = (has: any, not?: any) => {
 
 /* ========================================================================================= */
 
+const E6BaseU = () => E621_BASE_URL ?? defaultE926
 const E6Url = {
   post: (id: number | string, urlQue?: object) => {
-    return `https://e621.net/posts/${id}${urlQue ? "?" : ""}${makeQuery(urlQue ?? {})}`
+    return `${E6BaseU()}/posts/${id}${urlQue ? "?" : ""}${makeQuery(urlQue ?? {})}`
   },
   pool: (id: number | string) => {
-    return `https://e621.net/pools/${id}`
+    return `${E6BaseU()}/pools/${id}`
   },
   search: (searchTags: string[]) => {
-    return `https://e621.net/posts?tags=${new URLSearchParams({ tags: searchTags.join(" ") }).toString()}`
+    return `${E6BaseU()}/posts?${new URLSearchParams({ tags: searchTags.join(" ") }).toString()}`
   },
 };
 
@@ -4126,7 +4283,7 @@ const cnvFormat = {
   downloads: (post: E621.Post, addDate: number, format: string) => {
     /*
      *
-     * 基本上 能加的東西 都比照 The Wolf's Stash 
+     * 基本上 能加的東西 都比照 The Wolf's Stash
      * 當然 會有一些額外的東西 所以一樣的 能打斜綫來區分路徑 就是 不同資料夾
      *
      * %id%                       - 作品ID
@@ -4452,6 +4609,93 @@ const tools = {
       _app.throwNewNotic(t("Notic.Downloading.err"));
     }
   },
+}
+
+/* ========================================================================================= */
+
+const debugMenu = (tf: typeof t): ElectrApiType.MenuItemSpec => ({
+  label: tf("ELECTRON.menu.Debug"),
+  submenu: [
+    {
+      label: tf("ELECTRON.menu.Debug.devTool"),
+      role: 'toggleDevTools',
+    },
+    {
+      type: "separator",
+    },
+    {
+      label: tf("ELECTRON.menu.Debug.clearConsole"),
+      id: "debug.clearConsole",
+    },
+    {
+      label: tf("ELECTRON.menu.Debug.remountApp"),
+      id: "debug.remount",
+    },
+  ]
+})
+
+const otherMenu = (tf: typeof t): ElectrApiType.MenuItemSpec[] => {
+  const appInfo = ELECTRON_APP_INFO
+  return [
+    {
+      label: tf("ELECTRON.menu.App"),
+      submenu: ([
+        ['MINI', tf("ELECTRON.menu.App.MINI")],
+        (
+          appInfo.isMaximized ?
+            ['RSTR', tf("ELECTRON.menu.App.RSTR")] :
+            ['MAXI', tf("ELECTRON.menu.App.MAXI")]
+        ),
+        ['HIDE', tf("ELECTRON.menu.App.HIDE")],
+        "CLIP",
+        ['CLOSE', tf("ELECTRON.menu.App.CLOSE")],
+        ['KILL', tf("ELECTRON.menu.App.KILL")],
+      ] as ([string, string] | "CLIP")[]).map(b =>
+      (typeof b === "string" ?
+        { type: "separator" }
+        :
+        {
+          label: b[1],
+          id: "appWin.act." + b[0]
+        })
+      )
+    },
+    {
+      label: tf("ELECTRON.menu.Edit"),
+      submenu: [
+        {
+          label: tf("ELECTRON.menu.Edit.Undo"),
+          role: 'undo'
+        },
+        {
+          label: tf("ELECTRON.menu.Edit.Redo"),
+          role: 'redo'
+        },
+        { type: 'separator' },
+        {
+          label: tf("ELECTRON.menu.Edit.Cut"),
+          role: 'cut'
+        },
+        {
+          label: tf("ELECTRON.menu.Edit.Copy"),
+          role: 'copy'
+        },
+        {
+          label: tf("ELECTRON.menu.Edit.Paste"),
+          role: 'paste'
+        },
+        {
+          label: tf("ELECTRON.menu.Edit.Delete"),
+          role: 'delete'
+        },
+        { type: 'separator' },
+        {
+          label: tf("ELECTRON.menu.Edit.SelectAll"),
+          role: 'selectAll'
+        }
+      ]
+    }
+  ]
 }
 
 /* ========================================================================================= */
@@ -4820,9 +5064,11 @@ namespace Components {
 
 }
 
-const Card = React.memo(({ post, onClick, actionMenu, delay, queryQ, event }: Components.Card) => {
+const Card = React.memo(({ post: _post, onClick, actionMenu, delay, queryQ, event }: Components.Card) => {
+  const post = iNeedThis.normalizePost(_post)
+
   const totalScore = post.score.total
-  const favIsNav = totalScore === 0 ? null : totalScore < 0 ? "--" : "++"
+  const favIsNav = totalScore === 0 ? "=" : totalScore < 0 ? "-" : "+";
   const cachedSrc = Cache.useCachedThumbnail(post);
   const [suses, setSuses] = useState(false)
 
@@ -4877,14 +5123,9 @@ const Card = React.memo(({ post, onClick, actionMenu, delay, queryQ, event }: Co
     <div className={style["Info"]}>
       <div className={style["baseInfo"]}>
         <div className={style["score"]}>
-          <div className={clsx(style["up"], favIsNav === "++" && style["here"])}>
-            <div className={style["icon"]}>{"+"}</div>
-            <div>{post.score.up}</div>
-          </div>
-
-          <div className={clsx(style["down"], favIsNav === "--" && style["here"])}>
-            <div className={style["icon"]}>{"-"}</div>
-            <div>{Math.abs(post.score.down)}</div>
+          <div className={clsx(style["total"])}>
+            <div className={style["icon"]}>{favIsNav}</div>
+            <div>{post.score.total}</div>
           </div>
 
           <div className={style["fav"]}>
@@ -4920,8 +5161,39 @@ const Card = React.memo(({ post, onClick, actionMenu, delay, queryQ, event }: Co
 
 const Components = {
   Card,
-  Post: ({ postData: post, thisWindow }: Components.Post) => {
+  Post: ({ postData: _post, thisWindow }: Components.Post) => {
+    const post = iNeedThis.normalizePost(_post)
     const [start, setStart] = useState<boolean>(false)
+    const [searchTag, setSearch] = useState("");
+
+    const tags = useMemo(() => {
+      const callback: E621.PostTags | undefined = (() => {
+        const input = searchTag.trim()
+        if (!input) return post?.tags;
+
+        const filter = (list: string[]) => {
+          const fuse = new Fuse(list, {
+            includeScore: true,
+            threshold: 0.3,
+          });
+          return fuse.search(input).map(e => e.item)
+        }
+
+        return {
+          general: filter(post?.tags.general),
+          species: filter(post?.tags.species),
+          character: filter(post?.tags.character),
+          copyright: filter(post?.tags.copyright),
+          artist: filter(post?.tags.artist),
+          invalid: filter(post?.tags.invalid),
+          lore: filter(post?.tags.lore),
+          meta: filter(post?.tags.meta),
+        }
+      })();
+
+      return callback
+    }, [searchTag])
+
     const cachedMainSrc = Cache.useCachedPost(post);
     const cachedPrevSrc = Cache.useCachedThumbnail(post);
 
@@ -4972,20 +5244,34 @@ const Components = {
       MenuAction.showMenu(child.map(map), [x, y], "bl")
     }
 
+    const [isFocus, setIsFocus] = useState(false)
+
     return (<div
       ref={eRef}
       className={clsx(style["Post"], start && style["START"])}
     >
-      <div className={style["Tags"]} >
+      <div
+        className={style["Tags"]}
+        onKeyDown={e => { if (e.code === "Space") if (!isFocus) e.preventDefault(); }}
+      >
+        <input
+          type="text"
+          placeholder={t("components.post.tagFilter")}
+          className={style["tagFilter"]}
+          onInput={e => setSearch(e.currentTarget.value)}
+          onKeyDown={e => { if (e.code === "Escape") e.currentTarget.blur() }}
+          onFocus={_ => setIsFocus(true)}
+          onBlur={_ => setIsFocus(false)}
+        />
         {
           ([
-            [t("components.post.Artists"), post?.tags.artist],
-            [t("components.post.Copyrights"), post?.tags.copyright],
-            [t("components.post.Character"), post?.tags.character],
-            [t("components.post.Species"), post?.tags.species],
-            [t("components.post.General"), post?.tags.general],
-            [t("components.post.Meta"), post?.tags.meta],
-            [t("components.post.Lore"), post?.tags.lore],
+            [t("components.post.Artists"), tags.artist],
+            [t("components.post.Copyrights"), tags.copyright],
+            [t("components.post.Character"), tags.character],
+            [t("components.post.Species"), tags.species],
+            [t("components.post.General"), tags.general],
+            [t("components.post.Meta"), tags.meta],
+            [t("components.post.Lore"), tags.lore],
             ["Source", undefined],
             ["Information", undefined],
           ] as [string, (string[] | undefined)][])
@@ -5037,18 +5323,22 @@ const Components = {
                         [t("components.post.info.Size"), `${post.file.width}x${post.file.height} (${(post.file.size / 1024 / 1024).toFixed(2) + " MB"})`],
                         [t("components.post.info.Type"), post.file.ext.toLocaleUpperCase()],
                         "CLIP",
-                        [t("components.post.info.Rating"), post.rating.toLocaleUpperCase()],
+                        [t("components.post.info.Rating"), post.rating.toLocaleUpperCase(), { type: "tag", data: { action: "+", tag: "rating:" + post.rating } }],
                         [t("components.post.info.Score"), post.score.total],
                         [t("components.post.info.Favs"), post.fav_count],
                         "CLIP",
                         [t("components.post.info.Posted"), dateToString(post.created_at)],
-                      ] as ([string, string] | "CLIP")[]).map((e, indx) => {
+                      ] as ([string, string] | [string, string, e621Type.DragItemType.defaul] | "CLIP")[]).map((e, indx) => {
                         if (e === "CLIP") {
                           return <>
                             <div className={style["Clip"]} key={`Clip_${indx}`} />
                             <div className={style["Clip"]} key={`Clip2_${indx}`} />
                           </>
                         } else {
+                          const props: React.HTMLAttributes<HTMLDivElement> = {
+                            draggable: !!e[2],
+                            onDragStart(ev) { dragItem(ev, e[2]!) }
+                          }
                           return <>
                             <div
                               className={style["key"]}
@@ -5058,6 +5348,7 @@ const Components = {
                               }}
                             >{e[0]}</div>
                             <div
+                              {...props}
                               className={style["value"]}
                               key={`value_${indx}`}
                               style={{
@@ -5167,7 +5458,7 @@ const Components = {
             {post.tags.artist.join(",")}
           </div>
           <div className={style["info"]}>
-            <span>{post.rating.toLocaleUpperCase()}</span>
+            <span draggable={true} onDragStart={e => dragItem(e, { type: "tag", data: { action: "+", tag: "rating:" + post.rating } })}>{post.rating.toLocaleUpperCase()}</span>
             <span>{`#${post.id}`}</span>
             <span>{`+ ${post.score.up}`}</span>
             <span>{`- ${Math.abs(post.score.down)}`}</span>
@@ -5832,19 +6123,18 @@ const WINDOW_FRAME = ({
 }
 
 const windowActionList: (win?: WindowInstance<e621Type.defaul>) => MenuAction.Item[] = (win) => {
-  const setRct = (s: number, p: number) => win?.setRect({ width: s, height: s, left: p, top: p });
+  const setRct = (s: number,) => win?.setRect({ width: s, height: s, left: 50, top: 50 }, "%", "center-center");
 
-  const ReactList: [number, number][] = [
-    [95, 2.5],
-    [90, 5],
-    [85, 7.5],
-    [80, 10],
-    [75, 12.5],
-    [70, 15],
+  const ReactList: number[] = [
+    90,
+    80,
+    70,
+    60,
   ]
 
   return [
-    ...ReactList.map(e => ([t("menuButton.ResetRect").replace("$1", e[0]), () => setRct(e[0], e[1])])),
+    ...ReactList.map(e => ([t("menuButton.ResetRect").replace("$1", e), () => setRct(e)])),
+    [t("menuButton.Center"), () => win?.setRect({ top: 50, left: 50 }, "%", "center-center")],
     [t("menuButton.Minimize"), () => win?.minimize()],
     [t("menuButton.Close"), () => win?.close()],
   ].map(e => ({
@@ -6001,7 +6291,7 @@ namespace searchWindow {
               onChange={(e) => setJupPage(+e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  setPage(~~(jupPage < 1 ? 1 : jupPage));
+                  setPage(~~(jupPage > 0 ? jupPage : 1));
                   setJupToPage(false);
                 }
               }}
@@ -6010,7 +6300,7 @@ namespace searchWindow {
           <div className={clsx(style["line"], style["bottom"])}><div ref={applyLineRef} /></div>
           <div className={style["Apply"]}>
             <button ref={applyButtonRef} onClick={() => {
-              setPage(~~(jupPage < 0 ? 1 : jupPage));
+              setPage(~~(jupPage > 0 ? jupPage : 1));
               setJupToPage(false);
             }}>{t("windowsType.postSearch.jumpToPage.Apply")}</button>
           </div>
@@ -6187,7 +6477,7 @@ namespace searchWindow {
           return;
         }
 
-        LABS_E621_API.pools.get({ id: poolId }, nativeFetch()).then(info => {
+        apiCore.methods.pools.get({ id: poolId }).then(info => {
           if (info) {
             setPoolInfo(info as any);
             if (nowSetting.cache.enable.pool && nowSetting.cache.enable.global) {
@@ -6255,11 +6545,10 @@ namespace searchWindow {
       setSuggestLoading(true);
       const timer = setTimeout(async () => {
         try {
-          const tags = await LABS_E621_API.tags.nameMatch({
+          const tags = await apiCore.methods.tags.nameMatch({
             query,
             limit: 20,
-            user: E621_AUTH(),
-          }, nativeFetch());
+          });
           if (!cancelled) setTagSuggestions(tools.sortTagsByRelevance(tags, query));
         } catch (err) {
           console.error(`[tagSuggestions] fetch failed:`, err);
@@ -6310,12 +6599,11 @@ namespace searchWindow {
               throw new Error("目前處於 OFFLINE_MODE，跳過 API 請求。");
             }
 
-            newPosts = await LABS_E621_API.posts.search({
+            newPosts = await apiCore.methods.posts.search({
               tags: tagsQuery,
               page: apiPage,
               limit: 300,
-              user: E621_AUTH()
-            }, nativeFetch());
+            });
 
             if (currentFetchId === fetchIdRef.current) {
               const shouldSaveCache = mode === "pool"
@@ -6513,6 +6801,7 @@ namespace searchWindow {
     useEffect(() => {
       const keydown = (e: KeyboardEvent) => {
         if (disableWindowKeyEvent) return;
+        if (!wmRef.current?.getWindow(windowID)?.isFocused) return;
         if (e.altKey) return;
 
         if (e.code === "Escape") {
@@ -6882,7 +7171,10 @@ namespace searchWindow {
           </div>
         </div>
 
-        <div className={style["List"]} ref={touchAreaRef} >
+        <div
+          className={style["List"]}
+          ref={touchAreaRef}
+        >
           {fetchError ? (
             <NODATA.Error error={fetchError} Reload={refreshSearch} />
           ) : showLoading ? <NODATA.Fetching key={page} /> : (
@@ -6914,9 +7206,11 @@ type ViewerWindowProps = {
   winID: string,
   post: E621.Post,
   notViewer?: boolean
+  fetching?: boolean
+  reloadBtn?: () => void
 }
 
-const ViewerWindow = ({ winID, post, notViewer }: ViewerWindowProps) => {
+const ViewerWindow = ({ winID, post, notViewer, fetching, reloadBtn }: ViewerWindowProps) => {
   const cachedMainSrc = Cache.useCachedPost(post);
   const cachedPrevSrc = Cache.useCachedThumbnail(post);
 
@@ -6940,7 +7234,17 @@ const ViewerWindow = ({ winID, post, notViewer }: ViewerWindowProps) => {
             data: post,
           }
         },
-      ]), [
+      ]),
+      [
+        t("menuButton.top.Data"),
+        [
+          {
+            name: t("menuButton.Reload"),
+            action: reloadBtn
+          }
+        ]
+      ],
+      [
         t("menuButton.top.Other"),
         (notViewer ? [
           {
@@ -6960,11 +7264,16 @@ const ViewerWindow = ({ winID, post, notViewer }: ViewerWindowProps) => {
       ]
     ]}
   >
-    <Components.PostViewer
-      post={post}
-      main={cachedMainSrc ?? undefined}
-      prev={cachedPrevSrc ?? undefined}
-    />
+    {
+      fetching ?
+        <NODATA.Fetching />
+        :
+        <Components.PostViewer
+          post={post}
+          main={cachedMainSrc ?? undefined}
+          prev={cachedPrevSrc ?? undefined}
+        />
+    }
   </WINDOW_FRAME >
 }
 
@@ -6994,10 +7303,9 @@ const windowsType = {
       setPostData(undefined);
       setFetchError(null);
       try {
-        const result = await LABS_E621_API.posts.get({
+        const result = await apiCore.methods.posts.get({
           id: postId,
-          user: E621_AUTH()
-        }, nativeFetch());
+        });
         if (result) {
           setPostData(result);
           setFetchError(null);
@@ -7079,12 +7387,11 @@ const windowsType = {
 
           if (!targetPosts) {
             try {
-              targetPosts = await LABS_E621_API.posts.search({
+              targetPosts = await apiCore.methods.posts.search({
                 tags: searchTagsQuery,
                 page: targetPage,
                 limit: 300,
-                user: E621_AUTH()
-              }, nativeFetch());
+              });
               currentCache[targetPage] = targetPosts;
             } catch (e) {
               console.error(`第 ${targetPage} 頁抓取失敗: ${e}`);
@@ -7319,10 +7626,9 @@ const windowsType = {
       setFetchError(null);
 
       try {
-        const result = await LABS_E621_API.posts.get({
+        const result = await apiCore.methods.posts.get({
           id: targetId,
-          user: E621_AUTH()
-        }, nativeFetch());
+        });
 
         if (result) {
           setFetchedPost(result);
@@ -7434,13 +7740,40 @@ const windowsType = {
       ? thisWindow.customData.data
       : undefined;
 
-    const [fetchedPost] = useState<E621.Post>(savedData!);
+    const [fetchedPost, setPostData] = useState<E621.Post>(savedData!);
+    const [fetching, setFetching] = useState<boolean>(false);
+
+    const fetchPost = useCallback(async () => {
+      const postId = fetchedPost.id;
+      setFetching(true);
+
+      try {
+        const result = await apiCore.methods.posts.get({
+          id: postId,
+        });
+        if (result) {
+          setPostData(result);
+          setFetching(false);
+        }
+      } catch (e) {
+        console.error(`Post ${postId} load failed: ${e}`);
+        _app.throwNewNotic(`Post ${postId} load failed: ${e}`);
+        setFetching(false);
+      } finally {
+        setFetching(false);
+      }
+    }, []);
 
     useEffect(() => {
       thisWindow?.setTitle(getWindowTitle({ type: "viewer", data: fetchedPost }))
     }, [])
 
-    return (<ViewerWindow post={fetchedPost} winID={windowID} />);
+    return (<ViewerWindow
+      reloadBtn={fetchPost}
+      fetching={fetching}
+      post={fetchedPost}
+      winID={windowID}
+    />);
   },
   peekPreview: function () {
     const windowID = `peek-preview`;
@@ -8276,27 +8609,48 @@ const windowsType = {
                 return <>
                   <KiloDown.Subtitle>{t("setting.Account.e621.title")}</KiloDown.Subtitle>
                   <KiloDown.Thirdtitle>{t("setting.Account.e621.info")}</KiloDown.Thirdtitle>
+                  <>
+                    <br />
+                    <input
+                      type="text"
+                      kiase-sty=""
+                      placeholder={t("setting.Account.e621.inp.name")}
+                      onChange={e => setCurrentName(e.currentTarget.value)}
+                      value={currentName}
+                    />
+                    <br />
+                    <br />
+                    <PasswordInput
+                      placeholder={t("setting.Account.e621.inp.key")}
+                      onChange={e => setCurrentKey(e.currentTarget.value)}
+                      value={currentKey}
+                    />
+                    <br />
+                    <br />
+                    <div className={style["buttonList"]}>
+                      <button kiase-sty="" disabled={isSame} onClick={() => setAuth()}>{t("setting.Account.e621.btn.update")}</button>
+                      <button kiase-sty="" disabled={isSame} onClick={() => setAuth(true)}>{t("setting.Account.e621.btn.restore")}</button>
+                    </div>
+                  </>
+
                   <br />
-                  <input
-                    type="text"
-                    kiase-sty=""
-                    placeholder={t("setting.Account.e621.inp.name")}
-                    onChange={e => setCurrentName(e.currentTarget.value)}
-                    value={currentName}
-                  />
                   <br />
-                  <br />
-                  <PasswordInput
-                    placeholder={t("setting.Account.e621.inp.key")}
-                    onChange={e => setCurrentKey(e.currentTarget.value)}
-                    value={currentKey}
-                  />
-                  <br />
-                  <br />
+
+                  <KiloDown.Subtitle>{t("setting.Account.e621.baseUrl.title")}</KiloDown.Subtitle>
+                  <KiloDown.Thirdtitle>{t("setting.Account.e621.baseUrl.info.1")}</KiloDown.Thirdtitle>
+                  <KiloDown.Thirdtitle>{t("setting.Account.e621.baseUrl.info.2")}</KiloDown.Thirdtitle>
                   <div className={style["buttonList"]}>
-                    <button kiase-sty="" disabled={isSame} onClick={() => setAuth()}>{t("setting.Account.e621.btn.update")}</button>
-                    <button kiase-sty="" disabled={isSame} onClick={() => setAuth(true)}>{t("setting.Account.e621.btn.restore")}</button>
+                    {baseUrlList.map((e, i) => <button
+                      kiase-sty=""
+                      className={clsx(E621_BASE_URL === e[0] && style["activ"])}
+                      onClick={() => SET_E621_BASE_URL(e[0])}
+                      key={i}
+                    >{e[1]}</button>)}
                   </div>
+                  {E621_BASE_URL === baseUrlList.find(e => e[1] === "E621")![0]
+                    && <>
+                      <p>{t("setting.Account.e621.baseUrl.info.3")}</p>
+                    </>}
                 </>
               }
               case "language": {
@@ -9226,7 +9580,7 @@ const windowsType = {
                           })
                         }
                       }}>E621 App</h1>
-                      <h2>inDev 0.1.2</h2>
+                      <h2>inDev 0.1.1</h2>
                       <h3>{navigator.appVersion}</h3>
 
                       <br />
@@ -10042,7 +10396,12 @@ createWindow = function (wmRef, customData, other, setData) {
     if (wm?.getWindow(winID)) {
       wm?.bringToFront(winID)
       const win = wm?.getWindow(winID)
-      win?.setRect({ top: other?.top, left: other?.left }, "px", other?.anchor)
+      win?.setRect({
+        top: other?.top,
+        left: other?.left,
+        height: other?.height,
+        width: other?.width,
+      }, "px", other?.anchor)
 
       if (setData) {
         win?.setData(customData)
@@ -10224,8 +10583,6 @@ createWindow = function (wmRef, customData, other, setData) {
     }
 
     case "preview": {
-      const { data } = customData;
-      const pId = data.id;
       const id = `peek-preview`;
       Kiasole.log(JSON.stringify(customData))
 
@@ -10243,7 +10600,6 @@ createWindow = function (wmRef, customData, other, setData) {
           canClose: false,
           canMaximize: false,
           canMinimize: false,
-          canResize: false
         }
       })
     }
@@ -10428,7 +10784,7 @@ const Background = React.memo(({ bg }: { bg: workSpaceType.Unit.BaseItem.Image }
   }
 
   const cachedPost = Cache.useCachedPost(bg.fromPost ?? ({} as E621.Post));
-  const cachedSrc = bg.fromPost ? cachedPost : bg.url;
+  const cachedSrc = iNeedThis.toE926Static(bg.fromPost ? cachedPost : bg.url);
 
 
   return (
@@ -10659,7 +11015,14 @@ const RunBox = (arg: RunBoxArgs) => {
 
     const calc: (rawInp: string) => Option[] = (rawInp) => {
       try {
-        const res = mathjs.evaluate(rawInp)
+        const math = mathjs.create(mathjs.all, {
+          precision: 64,
+          number: "BigNumber",
+
+        })
+
+        const res = math.evaluate(rawInp)
+
         return [{
           name: `${t("runBox.intro.mathCalc.calc")} : ${res}`,
           engName: `${ent("runBox.intro.mathCalc.calc")} : ${res}`,
@@ -11113,6 +11476,9 @@ const Desktop = () => {
   const [startMenu, setStartMenu] = useState<boolean>(false)
   const [dropMenuBtn, setDropMenuBtn] = useState(-1)
   const [snap, setSnap] = useState<SnapPosition | null>(null)
+  const [snapStyle, setSnapStyle] = useState<CSSProperties>({
+    opacity: 0,
+  })
   const [PERF_ClassList, setPERF_ClassList] = useState<string[]>([])
   // #endregion
 
@@ -11390,18 +11756,25 @@ const Desktop = () => {
 
     onSelect: (id) => {
       windowsList.map(e => e.id).forEach(e => {
-        document.getElementById(e)!.style.opacity = ".5";
-        document.getElementById(e)!.style.pointerEvents = "none";
+        const ele = document.getElementById(e)!
+        ele.style.opacity = ".5";
+        ele.style.pointerEvents = "none";
+        ele.style.zIndex = "1";
+        ele.style.transition = "";
       });
-      document.getElementById(id)!.style.opacity = "";
-      document.getElementById(id)!.style.zIndex = "1012400";
+      const ele = document.getElementById(id)!
+      ele.style.opacity = "";
+      ele.style.zIndex = "10";
+      ele.style.transition = "none";
     },
 
     onSelectEnd: (selectedId) => {
       windowsList.map(e => e.id).forEach(e => {
-        document.getElementById(e)!.style.opacity = "";
-        document.getElementById(e)!.style.zIndex = "";
-        document.getElementById(e)!.style.pointerEvents = "";
+        const ele = document.getElementById(e)!
+        ele.style.opacity = "";
+        ele.style.zIndex = "";
+        ele.style.pointerEvents = "";
+        ele.style.transition = "";
       });
 
       const wm = wmRef.current;
@@ -11623,7 +11996,27 @@ const Desktop = () => {
     if (isInitialMount.current) return;
     reranderWindowContent()
     updateAllWindowTitles()
-  }, [nowSetting.lang, reranderWindowContent]);
+  }, [nowSetting.lang, E621_BASE_URL, reranderWindowContent]);
+
+  /* E621 的基礎連結 */
+  useEffect(() => {
+    SetS.usrInfo(usrIndx, p => {
+      p.user.baseUrl = E621_BASE_URL
+      return p
+    })
+    apiCore.setBaseURL(E621_BASE_URL)
+  }, [E621_BASE_URL]);
+
+  /* 設定 E621 的認證 */
+  useEffect(() => {
+    const authInfo = nowSaveInfo.user.e621;
+    if (authInfo?.key && authInfo?.name && authInfo) {
+      apiCore.setUserAuth({
+        key: authInfo.key,
+        name: authInfo.name
+      })
+    } else { apiCore.setUserAuth() }
+  }, [nowSaveInfo.user.e621?.key, nowSaveInfo.user.e621?.name, nowSaveInfo.user.e621]);
 
   /* AppSetting的更新 */
   useEffect(() => {
@@ -11751,6 +12144,7 @@ const Desktop = () => {
   }, [workSpaceEditor])
 
   /* 純針對workSpaceEditor */
+  const currentWsIndex = workSpaces.findIndex(w => w.id === nowWorkSpace);
   useEffect(() => {
     let keyispress = false
 
@@ -11762,7 +12156,6 @@ const Desktop = () => {
       const usingKey = (e.altKey && e.shiftKey)
       if (!(workSpaceEditor || usingKey)) return;
 
-      const currentIndex = workSpaces.findIndex(w => w.id === nowWorkSpace);
       if (e.code.startsWith("Digit") && usingKey) {
         const changews = (indx: number) => {
           handleSwitchWorkspace(workSpaces[indx].id)
@@ -11781,11 +12174,11 @@ const Desktop = () => {
         case "ArrowLeft": {
           if (keyispress) return;
           keyispress = true
-          if (currentIndex > 0) {
+          if (currentWsIndex > 0) {
             if (usingKey) {
               saveWinStatus(false, true);
             }
-            handleSwitchWorkspace(workSpaces[currentIndex - 1].id)
+            handleSwitchWorkspace(workSpaces[currentWsIndex - 1].id)
           }
           break;
         }
@@ -11794,11 +12187,11 @@ const Desktop = () => {
         case "ArrowRight": {
           if (keyispress) return;
           keyispress = true
-          if (currentIndex < workSpaces.length - 1) {
+          if (currentWsIndex < workSpaces.length - 1) {
             if (usingKey) {
               saveWinStatus(false, true);
             }
-            handleSwitchWorkspace(workSpaces[currentIndex + 1].id)
+            handleSwitchWorkspace(workSpaces[currentWsIndex + 1].id)
           }
           break;
         }
@@ -11827,6 +12220,7 @@ const Desktop = () => {
       if (keyispress) return;
 
       if (e.ctrlKey && (e.code === "KeyQ")) {
+        e.preventDefault();
         keyispress = true
         wmRef.current?.nowFocusedWindow?.close();
       }
@@ -12106,25 +12500,94 @@ const Desktop = () => {
     const wm = wmRef.current
     const snEle = snapElementRef.current
     if (!wm) return;
-    if (!snEle) return;
-    const { style: sty } = snEle
+    // if (!snEle) return;
+
+    const getSnap = (rect?: WindowRect): CSSProperties => {
+      switch (snap) {
+
+        case "top": return {
+          width: "100%",
+          height: "100%",
+          left: "0",
+          top: "0",
+        }
+
+        case "left": return {
+          width: "50%",
+          height: "100%",
+          left: "0",
+          top: "0",
+        }
+
+        case "right": return {
+          width: "50%",
+          height: "100%",
+          left: "50%",
+          top: "0",
+        }
+
+        case "top-left": return {
+          width: "50%",
+          height: "50%",
+          left: "0",
+          top: "0",
+        }
+
+        case "top-right": return {
+          width: "50%",
+          height: "50%",
+          left: "50%",
+          top: "0",
+        }
+
+        case "bottom-left": return {
+          width: "50%",
+          height: "50%",
+          left: "0",
+          top: "50%",
+        }
+
+        case "bottom-right": return {
+          width: "50%",
+          height: "50%",
+          left: "50%",
+          top: "50%",
+        }
+
+        case null: return {
+          opacity: 0,
+          transition: "none",
+          width: rect?.width + "%",
+          height: rect?.height + "%",
+          top: rect?.top + "%",
+          left: rect?.left + "%",
+        }
+      }
+    }
 
     const prev = (data: {
       id: string;
       rect?: WindowRect;
     }) => {
-      if (snap) return;
-      sty.width = data.rect?.width + "%"
-      sty.height = data.rect?.height + "%"
-      sty.top = data.rect?.top + "%"
-      sty.left = data.rect?.left + "%"
+      const thisStyle = getSnap(data.rect)
+      setSnapStyle(thisStyle)
     };
 
+    const movend = () => {
+      const thisStyle = getSnap()
+      setSnapStyle({
+        ...thisStyle,
+        opacity: 0,
+      })
+    }
+
     wm.addEventListener("move", prev)
+    wm.addEventListener("moveEnd", movend)
 
     return () => {
       if (wm) {
         wm.removeEventListener("move", prev)
+        wm.removeEventListener("moveEnd", movend)
       }
     }
   }, [snap, workspaceLoaded])
@@ -12385,87 +12848,123 @@ const Desktop = () => {
     handleAddWorkspace,
     inputKeyEvent,
   }: WorkSpacesMenuProp) => {
+    const [keyWord, setKeyWord] = useState("")
+    const [filteredWorkSpaces, setFltrdWS] = useState<workSpaceType.WorkSpaces.WorkSpaces[]>([])
+
+    useEffect(() => {
+      if (keyWord) {
+        const fuse = new Fuse(workSpaces, {
+          includeScore: true,
+          threshold: 0.3,
+          keys: [
+            "note.name",
+            "note.note",
+          ]
+        });
+        setFltrdWS(fuse.search(keyWord).map(e => e.item))
+      } else setFltrdWS(workSpaces)
+    }, [keyWord, workSpaces])
 
     return <div className={style["menu"]} >
-      {workSpaces.map((e, i) => (
-        <div
-          className={clsx(
-            style["workSpace"],
-            nowWorkSpace === e.id && style["activ"]
-          )}
-          key={e.id}
-          id={"workspace-" + e.id}
-        >
-          <div className={style["top"]}>
-            <input
-              type="text"
-              key={e.note.name}
-              defaultValue={e.note.name}
-              placeholder={t("workSpaceManager.name.placeholder")}
-              onKeyDown={(el) => {
-                inputKeyEvent(el)
-                switch (el.code) {
-                  case "Enter":
-                  case "NumpadEnter": {
-                    WSA.updateWorkspace(usrIndx, e.id, {
-                      note: { ...e.note, name: el.currentTarget.value }
-                    })
-                    return;
-                  }
-                }
-              }}
-              onBlur={(el) => {
-                WSA.updateWorkspace(usrIndx, e.id, {
-                  note: { ...e.note, name: el.currentTarget.value }
-                })
-              }}
-              style={{ color: e.setting.color }}
-            />
-            {workSpaces.length > 1 && (
-              <button onClick={() => handleDeleteWorkspace(e.id)}>
-                <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" style={{ fill: e.setting.color }}><path d="m291-240-51-51 189-189-189-189 51-51 189 189 189-189 51 51-189 189 189 189-51 51-189-189-189 189Z" /></svg>
-              </button>
+      <input
+        type="text"
+        placeholder={t("workSpaceManager.search.placeholder")}
+        onInput={e => setKeyWord(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          inputKeyEvent(e)
+          if (e.code === "Escape") {
+            if (e.currentTarget.value) {
+              e.currentTarget.value = ""
+              setKeyWord("")
+            } else {
+              e.currentTarget.blur();
+            }
+          }
+        }}
+      />
+      <div className={style["list"]}>
+        {filteredWorkSpaces.map((e, i) => (
+          <div
+            className={clsx(
+              style["workSpace"],
+              nowWorkSpace === e.id && style["activ"]
             )}
-          </div>
-          <button
-            className={style["desktopPreview"]}
-            onClick={() => handleSwitchWorkspace(e.id)}
-            style={{
-              aspectRatio: `${resolution[0]} / ${resolution[1]}`,
-              borderColor: e.setting.color
-            }}
+            key={e.id}
+            id={"workspace-" + e.id}
           >
-            <div className={style["indexNumber"]}><span style={{ color: e.setting.color }}>{`# ${i.toString().padStart((workSpaces.length - 1).toString().length, "0")}`}</span></div>
-            <div className={style["backdrop"]} />
-            <div className={style["windows"]} >
-              {(e.id === nowWorkSpace && liveSnapshotRef.current?.id === nowWorkSpace
-                ? liveSnapshotRef.current.snapshot
-                : e.status
-              ).filter(win => !win.isMinimized).map((win, i) => <div
-                className={style["win"]}
-                key={i}
-                style={{ zIndex: win.zIndex }}
-              >
-                <div
-                  className={style["position"]}
-                  style={{
-                    borderColor: color.bright(e.setting.color, .8),
-                    backgroundColor: color.bright(e.setting.color, .3) + "80",
-                    top: win.rect.top + "%",
-                    left: win.rect.left + "%",
-                    width: win.rect.width + "%",
-                    height: win.rect.height + "%",
-                  }}
-                />
-              </div>)}
+            <div className={style["top"]}>
+              <input
+                type="text"
+                key={e.note.name}
+                defaultValue={e.note.name}
+                placeholder={t("workSpaceManager.name.placeholder")}
+                onKeyDown={(el) => {
+                  inputKeyEvent(el)
+                  switch (el.code) {
+                    case "Enter":
+                    case "NumpadEnter": {
+                      WSA.updateWorkspace(usrIndx, e.id, {
+                        note: { ...e.note, name: el.currentTarget.value }
+                      })
+                      return;
+                    }
+                  }
+                }}
+                onBlur={(el) => {
+                  WSA.updateWorkspace(usrIndx, e.id, {
+                    note: { ...e.note, name: el.currentTarget.value }
+                  })
+                }}
+                style={{ color: e.setting.color }}
+              />
+              {workSpaces.length > 1 && (
+                <button onClick={() => handleDeleteWorkspace(e.id)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" style={{ fill: e.setting.color }}><path d="m291-240-51-51 189-189-189-189 51-51 189 189 189-189 51 51-189 189 189 189-51 51-189-189-189 189Z" /></svg>
+                </button>
+              )}
             </div>
-            <Background bg={e.setting.wallpaper} />
-          </button>
-        </div>
-      ))}
-      <button onClick={handleAddWorkspace} className={style["add"]}>
-        {t("workSpaceManager.newDesktop")}
-      </button>
+            <button
+              className={style["desktopPreview"]}
+              onClick={() => handleSwitchWorkspace(e.id)}
+              style={{
+                aspectRatio: `${resolution[0]} / ${resolution[1]}`,
+                borderColor: e.setting.color
+              }}
+            >
+              {e.note.note && <div className={style["note"]}><span style={{ color: e.setting.color }}>{`${e.note.note}`}</span></div>}
+              <div className={style["indexNumber"]}><span style={{ color: e.setting.color }}>{`# ${i.toString().padStart((workSpaces.length - 1).toString().length, "0")}`}</span></div>
+              <div className={style["backdrop2"]} style={{ opacity: !!e.note.note ? 1 : 0 }} />
+              <div className={style["backdrop"]} />
+              <div className={style["windows"]} >
+                {(e.id === nowWorkSpace && liveSnapshotRef.current?.id === nowWorkSpace
+                  ? liveSnapshotRef.current.snapshot
+                  : e.status
+                ).filter(win => !win.isMinimized).map((win, i) => <div
+                  className={style["win"]}
+                  key={i}
+                  style={{ zIndex: win.zIndex }}
+                >
+                  <div
+                    className={style["position"]}
+                    style={{
+                      borderColor: color.bright(e.setting.color, .8),
+                      backgroundColor: color.bright(e.setting.color, .3) + "80",
+                      top: win.rect.top + "%",
+                      left: win.rect.left + "%",
+                      width: win.rect.width + "%",
+                      height: win.rect.height + "%",
+                    }}
+                  />
+                </div>)}
+              </div>
+              <Background bg={e.setting.wallpaper} />
+            </button>
+          </div>
+        ))}
+        <button onClick={handleAddWorkspace} className={style["add"]}>
+          {t("workSpaceManager.newDesktop")}
+        </button>
+      </div>
     </div>
   }, [])
 
@@ -12473,29 +12972,38 @@ const Desktop = () => {
     nowWorkSpace: string;
     workSpaces: workSpaceType.WorkSpaces.WorkSpaces[];
     workSpaceEditor: boolean;
+    WSInfoShow: boolean;
   }
+
+  let WSInfoTmOut = useRef(setTimeout(() => { }, 250))
+  const [WSInfoShow, setWSInfoShow] = useState(false)
+  const showOncesWsInfo = () => {
+    setWSInfoShow(true)
+    WSInfoTmOut.current = setTimeout(() => {
+      setWSInfoShow(false)
+    }, 250);
+  }
+
   const WorkspaceTips = useCallback(({
     nowWorkSpace,
     workSpaces,
     workSpaceEditor,
+    WSInfoShow
   }: WorkspaceTipsProp) => {
     const index = workSpaces.findIndex(e => e.id === nowWorkSpace)
     if (index === -1) return;
     const ws = workSpaces[index]!
 
-    const [show, setShow] = useState(false)
+
     useEffect(() => {
-
-      let timeout = setTimeout(() => { }, 250);
-
       const kd = (e: KeyboardEvent) => {
         const isPress = e.altKey && e.shiftKey
         if (isPress) {
-          clearTimeout(timeout)
-          setShow(true)
+          clearTimeout(WSInfoTmOut.current)
+          setWSInfoShow(true)
         } else {
-          timeout = setTimeout(() => {
-            setShow(false)
+          WSInfoTmOut.current = setTimeout(() => {
+            setWSInfoShow(false)
           }, 250);
         }
       };
@@ -12508,7 +13016,7 @@ const Desktop = () => {
       }
     }, [])
 
-    return <div className={clsx(style["WorkspaceTips"], (show || workSpaceEditor) && style["show"])} >
+    return <div className={clsx(style["WorkspaceTips"], (WSInfoShow || workSpaceEditor) && style["show"])} >
       <div className={style["Backdrop"]} />
       <div className={style["Information"]} key={nowWorkSpace}>
         <div className={style["name"]}>{ws.note.name}</div>
@@ -12517,6 +13025,390 @@ const Desktop = () => {
       </div>
     </div>
   }, [])
+
+  type AltRightDragType = {
+    w: number
+    h: number
+    x: number
+    y: number
+  } | null
+  type AltRightStatusType = "drag" | "canopen" | "waiting" | "null"
+
+  const [altRightDrag, setAltRightDrag] = useState<AltRightDragType>(null)
+  const [altRightStatus, setAltRightStatus] = useState<AltRightStatusType>("null")
+
+  useEffect(() => {
+    // return;
+    if (workSpaceEditor) return;
+    if (runBox) return;
+    if (startMenu) return;
+
+    let isDown = false
+    let canopen = false
+    let startPos: [number, number] = [0, 0]
+    let lastPost: AltRightDragType = null
+
+    const axc = (_start: number, _dist: number): [number, number] => {
+      const scale = 100 / nowSetting.appearance.scale
+      const start = _start * scale;
+      const dist = _dist * scale;
+
+      const afterMin = dist - start;
+      const isNav = afterMin < 0 ? true : false;
+      if (isNav) return [start - Math.abs(afterMin), Math.abs(afterMin)]
+      else return [start, Math.abs(afterMin)]
+    }
+
+    const setAltR = (data: AltRightDragType) => {
+      lastPost = data
+      setAltRightDrag(data)
+    }
+
+    const mousedown = (e: MouseEvent) => {
+      if (!(e.button === 0 && e.ctrlKey && e.shiftKey)) return
+      e.preventDefault()
+      isDown = true;
+      startPos = [e.clientX, e.clientY];
+      setAltRightStatus("drag")
+
+      const x = axc(startPos[0], startPos[0]);
+      const y = axc(startPos[1], startPos[1]);
+      setAltR({
+        x: x[0],
+        w: x[1],
+        y: y[0],
+        h: y[1],
+      })
+
+      canopen = false
+
+    }
+
+    const mousemove = (e: MouseEvent) => {
+      if (!(e.button === 0)) return
+      if (!isDown) return;
+      e.preventDefault()
+
+      const x = axc(startPos[0], e.clientX);
+      const y = axc(startPos[1], e.clientY);
+
+      if (x[1] > 650 && y[1] > 450) {
+        setAltRightStatus("canopen")
+        canopen = true
+      } else {
+        setAltRightStatus("drag")
+        canopen = false
+      }
+
+      setAltR({
+        x: x[0],
+        w: x[1],
+        y: y[0],
+        h: y[1],
+      })
+
+    }
+
+    const mouseup = (e: MouseEvent) => {
+      isDown = false
+      startPos = [0, 0]
+      if (canopen) {
+        canopen = false
+        const p = lastPost
+        createWindow(wmRef, {
+          type: "postSearch",
+          data: {
+            nowPage: 1,
+            pageCache: [],
+            searchTags: [],
+          }
+        }, {
+          left: p?.x,
+          top: p?.y,
+          height: p?.h,
+          width: p?.w,
+        })
+        setAltRightStatus("null")
+        // setAltRightStatus("waiting")
+      } else {
+        setAltRightStatus("null")
+      }
+    }
+
+    const unfocus = () => {
+      isDown = false
+      canopen = false
+      startPos = [0, 0]
+      setAltRightStatus("null")
+    }
+
+    document.addEventListener("mousedown", mousedown)
+    document.addEventListener("mousemove", mousemove)
+    document.addEventListener("mouseup", mouseup)
+    window.addEventListener("blur", unfocus)
+
+    return () => {
+      document.removeEventListener("mousedown", mousedown)
+      document.removeEventListener("mousemove", mousemove)
+      document.removeEventListener("mouseup", mouseup)
+      window.removeEventListener("blur", unfocus)
+    }
+
+  }, [workSpaceEditor, runBox, startMenu])
+
+  // #region 你要學會跟 Electron 講道理
+
+  /* Electron 的選單 Event */
+  const menuHandlerRef = useRef<(id: string) => void>(() => { });
+
+  menuHandlerRef.current = (id) => {
+    const wm = wmRef.current
+
+    const prefixHandlers: [string, (arg: string) => void][] = [
+      [
+        "ws.change.",
+        (arg) => {
+          saveWinStatus(false, true);
+          handleSwitchWorkspace(arg)
+          clearTimeout(WSInfoTmOut.current)
+          showOncesWsInfo()
+        }
+      ],
+      [
+        "win.focus.",
+        (arg) => {
+          const win = wm?.getWindow(arg)
+          win?.focus()
+        }
+      ],
+      [
+        "baseUrl.set.",
+        SET_E621_BASE_URL
+      ],
+      [
+        "windowAct.",
+        (arg) => {
+          if (wm?.nowFocusedWindow?.id)
+            windowAction(wm?.nowFocusedWindow.id)[+arg]?.action?.()
+        }
+      ],
+    ];
+
+    for (const [prefix, fn] of prefixHandlers) {
+      if (id.startsWith(prefix)) return fn(id.slice(prefix.length));
+    }
+
+    const winList = windowsList.map(e => wmRef.current?.getWindow(e.id))
+
+    switch (id) {
+
+      /* WS */
+      case "ws.toggleEdit": {
+        setWorkSpaceEditor(e => !e)
+        break;
+      }
+
+      case "ws.next": {
+        saveWinStatus(false, true);
+        handleSwitchWorkspace(workSpaces[currentWsIndex + 1].id)
+        showOncesWsInfo()
+        break;
+      }
+
+      case "ws.previous": {
+        saveWinStatus(false, true);
+        handleSwitchWorkspace(workSpaces[currentWsIndex - 1].id)
+        showOncesWsInfo()
+        break;
+      }
+
+      case "ws.save": {
+        saveWinStatus();
+        break;
+      }
+
+      /* win */
+      case "win.all.close": {
+        winList.forEach(e => e?.close())
+        break;
+      }
+
+      case "win.all.mini": {
+        winList.forEach(e => e?.minimize())
+        break;
+      }
+
+      case "win.all.res": {
+        winList.forEach(e => e?.focus())
+        break;
+      }
+
+    }
+  };
+
+  useEffect(() => {
+    if (!electronMode) return;
+    const listener = (e: CustomEvent<ElectrApiType.MenuClickDetail>) => menuHandlerRef.current(e.detail.id);
+
+    document.addEventListener("APP-MENU-CLICK", listener);
+    return () => document.removeEventListener("APP-MENU-CLICK", listener);
+  }, []);
+
+  /* Electron 的選單 */
+  {
+
+    const DebugMenu = useMemo<ElectrApiType.MenuItemSpec>((() => debugMenu(t)), [nowSetting.lang])
+    const OtherMenu = useMemo<ElectrApiType.MenuItemSpec[]>((() => otherMenu(t)), [ELECTRON_APP_INFO, nowSetting.lang])
+
+    const awa = useMemo<ElectrApiType.MenuItemSpec>(() => ({
+      label: t("ELECTRON.menu.Debug"),
+      submenu: [
+        {
+          label: t("ELECTRON.menu.Debug.devTool"),
+          role: 'toggleDevTools',
+        },
+        {
+          type: "separator",
+        },
+        {
+          label: t("ELECTRON.menu.Debug.clearConsole"),
+          id: "debug.clearConsole",
+        },
+        {
+          label: t("ELECTRON.menu.Debug.remountApp"),
+          id: "debug.remount",
+        },
+      ]
+    }), [nowSetting.lang])
+
+    const baseUrlMenu = useMemo<ElectrApiType.MenuItemSpec>(() => {
+
+      const ls: ElectrApiType.MenuItemSpec[] = baseUrlList.map(e => ({
+        label: e[1] + "\t" + e[0],
+        enabled: E621_BASE_URL !== e[0],
+        id: "baseUrl.set." + e[0]
+      }))
+
+      return {
+        label: t("ELECTRON.menu.BaseURL"),
+        submenu: ls
+      }
+    }, [E621_BASE_URL, nowSetting.lang])
+
+    const WorkSpace = useMemo<ElectrApiType.MenuItemSpec>(() => {
+      const wsList: ElectrApiType.MenuItemSpec[] = workSpaces.map((ws, i) => ({
+        label: ws.note.name
+          + (ws.note?.note ? " // " + functions.str.textOverflowReplace(ws.note.note, 20) : "")
+          + (i >= 10 ? "" : "\tAlt+Shift+" + (i + 1).toString().padStart(2, "0").slice(1)),
+        enabled: ws.id !== nowWorkSpace,
+        id: "ws.change." + ws.id,
+      }))
+
+      return {
+        label: t("ELECTRON.menu.WorkSpace"),
+        submenu: [
+          {
+            label: t("ELECTRON.menu.WorkSpace.editor") + "\tAlt+W",
+            id: "ws.toggleEdit",
+          },
+          {
+            label: t("runBox.actions.saveWorkSpaceStatus") + "\tCtrl+S",
+            id: "ws.save",
+          },
+          {
+            label: t("ELECTRON.menu.WorkSpace.next") + "\tAlt+Shift+Right",
+            id: "ws.next",
+          },
+          {
+            label: t("ELECTRON.menu.WorkSpace.previous") + "\tAlt+Shift+Left",
+            id: "ws.previous",
+          },
+          { type: "separator" },
+          ...wsList,
+        ]
+      }
+    }, [workSpaceEditor, nowWorkSpace, workSpaces, nowSetting.lang])
+
+    const Windows = useMemo<ElectrApiType.MenuItemSpec>(() => {
+      const wm = wmRef.current
+      const winList: ElectrApiType.MenuItemSpec[] = windowsList.map((win, i) => {
+        const isMini = wm?.getWindow(win.id)?.isMinimized
+        return {
+          label:
+            (wm?.nowFocusedWindow?.id === win.id ? "* " : "") +
+            (isMini ? "- " : "") +
+            win.title
+            + (i >= 10 ? "" : "\tAlt+" + (i + 1).toString().padStart(2, "0").slice(1)),
+          id: "win.focus." + win.id,
+          enabled: !workSpaceEditor,
+        }
+      })
+
+      return {
+        label: t("ELECTRON.menu.WindowsManagement"),
+        submenu: [
+          {
+            label: t("runBox.intro.toggleWindows.moreAction.closeAllWindow"),
+            id: "win.all.close",
+            enabled: !workSpaceEditor,
+          },
+          {
+            label: t("runBox.intro.toggleWindows.moreAction.minimizeAllWindow"),
+            id: "win.all.mini",
+            enabled: !workSpaceEditor,
+          },
+          {
+            label: t("runBox.intro.toggleWindows.moreAction.restoreAllWindow"),
+            id: "win.all.res",
+            enabled: !workSpaceEditor,
+          },
+          { type: "separator" },
+          ...winList
+        ]
+      }
+    }, [windowsList, workSpaceEditor, nowSetting.lang])
+
+    const Window = useMemo<ElectrApiType.MenuItemSpec>(() => {
+
+      const nowWin = wmRef?.current?.nowFocusedWindow
+
+      const btnLs: ElectrApiType.MenuItemSpec[] = windowAction("").map((btn, i) => ({
+        label: btn?.name,
+        id: "windowAct." + i,
+        enabled: (!workSpaceEditor) && !!nowWin
+      }))
+
+      return {
+        label: t("menuButton.top.Window"),
+        submenu: [
+          {
+            label: nowWin?.title ?? "NONE",
+          },
+          {
+            type: "separator"
+          },
+          ...btnLs
+        ]
+      }
+    }, [windowsList, workSpaceEditor, nowSetting.lang])
+
+    useEffect(() => {
+      if (!electronMode) return;
+
+      window.electronAPI.setMenu([
+        ...OtherMenu,
+        Window,
+        Windows,
+        WorkSpace,
+        baseUrlMenu,
+        DebugMenu,
+      ])
+
+    }, [OtherMenu, Windows, WorkSpace, baseUrlMenu, DebugMenu])
+  }
+
+  // #endregion
+
 
   if (!workspaceLoaded) return <div
     id={style["Desktop"]}
@@ -12527,19 +13419,21 @@ const Desktop = () => {
     <NODATA.Loading />
   </div>;
 
+
   return (
     displayDesktop && <div
       id={style["Desktop"]}
       className={clsx(
         !ready && style["hide"],
         workSpaceEditor && style["workSpaceEditor"],
-        ...PERF_ClassList.map(e => style[e])
+        ...PERF_ClassList.map(e => style[e]),
       )}
 
       style={{
         zoom: `${nowSetting.appearance.scale}%`
       }}
     >
+
       {importing && <div className={style["Importing"]}>
         <div className={style["dark"]} />
         <NODATA.Loading />
@@ -12626,6 +13520,7 @@ const Desktop = () => {
           nowWorkSpace={nowWorkSpace}
           workSpaces={workSpaces}
           workSpaceEditor={workSpaceEditor}
+          WSInfoShow={WSInfoShow}
         />
 
         <div className={style["WindowSelector"]}>
@@ -12861,69 +13756,28 @@ const Desktop = () => {
 
             <div className={style["SnapPreview"]}>
               <div
-                ref={snapElementRef}
-                style={(() => {
-                  switch (snap) {
-
-                    case "top": return {
-                      width: "100%",
-                      height: "100%",
-                      left: "0",
-                      top: "0",
-                    }
-
-                    case "left": return {
-                      width: "50%",
-                      height: "100%",
-                      left: "0",
-                      top: "0",
-                    }
-
-                    case "right": return {
-                      width: "50%",
-                      height: "100%",
-                      left: "50%",
-                      top: "0",
-                    }
-
-                    case "top-left": return {
-                      width: "50%",
-                      height: "50%",
-                      left: "0",
-                      top: "0",
-                    }
-
-                    case "top-right": return {
-                      width: "50%",
-                      height: "50%",
-                      left: "50%",
-                      top: "0",
-                    }
-
-                    case "bottom-left": return {
-                      width: "50%",
-                      height: "50%",
-                      left: "0",
-                      top: "50%",
-                    }
-
-                    case "bottom-right": return {
-                      width: "50%",
-                      height: "50%",
-                      left: "50%",
-                      top: "50%",
-                    }
-
-                    case null: return {
-                      opacity: 0
-                    }
-
-                  }
-                })()}
+                style={snapStyle}
               />
             </div>
 
-            <div className={style["Windows"]} ref={containerRef}></div>
+            <div className={style["Windows"]}>
+              <div className={style["RightDrag"]}>
+                {altRightDrag && (() => {
+                  const { h, w, x, y } = altRightDrag
+                  return <div
+                    className={clsx(style["area"], style[altRightStatus])}
+                    style={{
+                      width: w,
+                      height: h,
+                      top: y,
+                      left: x,
+                    }}
+                  />
+                })()}
+                {/* <input type="text" /> */}
+              </div>
+              <div ref={containerRef} className={style["WM"]} />
+            </div>
 
             <div className={style["CancelDrag"]}>
               <div className={style["main"]} ref={dragCancelAreaRef}>
@@ -13461,11 +14315,11 @@ const App = () => {
   [displayDesktop, setDisplayDesktop] = useState(false);
   [APP_READY, SET_APP_READY] = useState(false);
   [OFFLINE_MODE, SET_OFFLINE_MODE] = useState(false);
+  [E621_BASE_URL, SET_E621_BASE_URL] = useState(defaultE926);
   [ELECTRON_APP_INFO, SET_ELECTRON_APP_INFO] = useState<ELECTRON_APP_INFO_TYPE>(ELECTRON_APP_INFO_NOREADY);
   [nowSetting, _setNowSetting] = useState(newEmptyAccount.setting);
   [nowSaveInfo, setNowSaveInfo] = useState(newEmptyAccount.saveInfo);
   [importing, setImporting] = useState<boolean>(false)
-  nowSetting.appearance.scale
   const res = fuckingState.resolution()
   const frsStart = useRef(true)
 
@@ -13507,11 +14361,48 @@ const App = () => {
 
         setNowSetting(setting);
         setNowSaveInfo(saveInfo);
+        apiCore.setBaseURL(saveInfo.user.baseUrl)
+        SET_E621_BASE_URL(saveInfo.user.baseUrl ?? defaultE926)
       } catch (error) {
         console.error("Failed to load settings:", error);
       }
     })();
   }, [isLogin, usrIndx]);
+
+  /* Electron 的選單 Event */
+  useEffect(() => {
+    if (!electronMode) return;
+    document.addEventListener("APP-MENU-CLICK", (e) => {
+      const id = e.detail.id
+
+      const prefixHandlers: [string, (arg: string) => void][] = [
+        [
+          "appWin.act.",
+          (arg) => ELECTRON_ACT(arg as ElectrApiType.WindowAction)
+        ]
+      ];
+
+      for (const [prefix, fn] of prefixHandlers) {
+        if (id.startsWith(prefix)) return fn(id.slice(prefix.length));
+      }
+
+      switch (id) {
+
+        case "debug.clearConsole": {
+          console.clear();
+          break;
+        }
+
+        case "debug.remount": {
+          SET_APP_READY(false)
+          setTimeout(() => {
+            SET_APP_READY(true)
+          }, 50);
+          break;
+        }
+      }
+    });
+  }, [])
 
   useEffect(() => {
     const onSaveInfo = (e: any) => {
@@ -13548,14 +14439,16 @@ const App = () => {
   }, [APP_READY])
 
   useEffect(() => {
+    if (!electronMode) return;
     ELECTRON_SET_TRAY(appName + (guestMode ? ` ( Gust Mode ) ` : ""))
     ELECTRON_APP_IS_READY()
   }, [APP_READY])
 
   useEffect(() => {
-    const appInfo = (e: any) => {
+    const appInfo = (e: CustomEvent<ELECTRON_APP_INFO_TYPE>): void => {
       SET_ELECTRON_APP_INFO(e.detail)
     }
+
     document.addEventListener("APP-INFO", appInfo)
     return () => {
       document.removeEventListener("APP-INFO", appInfo)
@@ -13571,6 +14464,14 @@ const App = () => {
       void ele.clientHeight
     }
   }, [res])
+
+  useEffect(() => {
+    if (!electronMode) return;
+    if (!isLogin) window.electronAPI.setMenu([
+      ...otherMenu(ent),
+      debugMenu(ent)
+    ])
+  }, [ELECTRON_APP_INFO, isLogin])
 
   const Content = (<>
     {APP_READY && <>
@@ -13683,4 +14584,4 @@ export default function () {
     <HeadSetting title={appName + (guestMode ? ` ( Gust Mode ) ` : "")} />
     {READY && <App />}
   </>)
-}   
+}

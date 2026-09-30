@@ -23,10 +23,11 @@
       &:hover,
       &:focus {
         opacity: 1;
+        transition: none;
       }
 
       &:focus {
-        background-color: Color(.08, .8);
+        background-color: Color(.08, .5);
       }
     }
   }

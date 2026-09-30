@@ -119,6 +119,13 @@ $blur-effect-5: blur(var(--blur-effect-5)) $noise-overlay;
   }
 }
 
+@mixin NoneTrans() {
+  &,
+  * {
+    transition: none;
+  }
+}
+
 $transition-duration: .5s;
 $transition-delay: 0s;
 $transition-timing-function: cubic-bezier(0, .5, 0, 1);

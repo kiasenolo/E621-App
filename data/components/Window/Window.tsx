@@ -207,6 +207,9 @@ export default function Window({
     let capturedElement: HTMLElement | null = null;
     let currentSnapPosition: SnapPosition | null = null;
 
+    let lockAxis: "x" | "y" | null = null;
+    const AXIS_LOCK_THRESHOLD = 10;
+
     let latestRect: WindowRect | undefined;
 
     const snapDist = 15;
@@ -301,6 +304,24 @@ export default function Window({
       if (action === "move" || action === "alt-move") {
         let newLeft = localX - clickOffsetX;
         let newTop = localY - clickOffsetY;
+
+        // 按住 Shift：鎖定在水平 / 垂直線上移動
+        // newLeft - dx / newTop - dy 就是拖動起點時視窗的位置
+        let freezeX = false;
+        let freezeY = false;
+        if (e.shiftKey) {
+          if (!lockAxis && Math.max(Math.abs(dx), Math.abs(dy)) >= AXIS_LOCK_THRESHOLD) {
+            lockAxis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+          }
+          // 方向未決定時兩軸都先凍結，避免一開始亂跳
+          freezeX = lockAxis !== "x";
+          freezeY = lockAxis !== "y";
+          if (freezeX) newLeft -= dx;
+          if (freezeY) newTop -= dy;
+        } else {
+          lockAxis = null; // 放開 Shift 就解除鎖定
+        }
+
         const currentW = win.offsetWidth;
         const currentH = win.offsetHeight;
 
@@ -311,16 +332,20 @@ export default function Window({
           e.ctrlKey
         );
 
+        // 被凍結的軸不吃吸附，否則會偏離直線
+        if (freezeX) snapDelta.x = 0;
+        if (freezeY) snapDelta.y = 0;
+
         newLeft += snapDelta.x;
         newTop += snapDelta.y;
 
         const limitW = cw - currentW;
         const limitH = ch - currentH;
 
-        if (snapDelta.x === 0) {
+        if (snapDelta.x === 0 && !freezeX) {
           newLeft = getSnapped(newLeft, limitW, e.ctrlKey);
         }
-        if (snapDelta.y === 0) {
+        if (snapDelta.y === 0 && !freezeY) {
           newTop = getSnapped(newTop, limitH, e.ctrlKey);
         }
 
@@ -556,6 +581,7 @@ export default function Window({
 
       action = null;
       hasMoved = false;
+      lockAxis = null;
       actionStatusRef.current = false;
       setActionStatus(false);
 
@@ -648,6 +674,7 @@ export default function Window({
 
       if (action) {
         hasMoved = false;
+        lockAxis = null;
         target.setPointerCapture(e.pointerId);
         capturedElement = target;
         win.addEventListener("pointermove", onPointerMove);

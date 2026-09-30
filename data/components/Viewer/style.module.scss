@@ -94,5 +94,10 @@
         pointer-events: none !important;
       }
     }
+
+    @starting-style {
+      transform: scale(.8);
+      opacity: 0;
+    }
   }
 }

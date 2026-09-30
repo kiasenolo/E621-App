@@ -79,7 +79,7 @@ const Viewer = forwardRef<ViewerHandle, React.ComponentProps<"div"> & ViewerProp
     const transformLayer = transformRef.current;
     const resetBtn = resetBtnRef.current;
 
-    const ZOOM_MAX = 100;
+    const ZOOM_MAX = 1000;
     const ZOOM_MIN = .1;
 
     if (!gestureLayer || !transformLayer) return;

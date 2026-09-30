@@ -19,8 +19,8 @@
   box-shadow: 0 10px 50px Color(.08, .5);
   outline: 3px solid Color(1, .05);
 
-  * {
-    transition: DefaultTransition(.5s);
+  >* {
+    transition: DefaultTransition();
   }
 
   &.active {

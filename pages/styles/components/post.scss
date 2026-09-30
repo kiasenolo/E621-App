@@ -18,6 +18,26 @@
     @include flex();
     gap: 15px;
 
+    .tagFilter {
+      margin-bottom: -15px;
+      background: none;
+      outline: none;
+      border: none;
+      font-size: 20px;
+      padding: 10px 20px;
+      opacity: .8;
+
+      &:hover,
+      &:focus {
+        opacity: 1;
+        transition: none;
+      }
+
+      &:focus {
+        background-color: Color(.08, .5);
+      }
+    }
+
     .list {
       $opacity: .5;
       @include flex();
@@ -26,7 +46,7 @@
 
       .title {
         font-size: 20px;
-        padding: 8px 10px;
+        padding: 8px 20px;
         background-color: Color(.2, $opacity);
       }
 

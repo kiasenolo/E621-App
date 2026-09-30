@@ -1,6 +1,6 @@
-@use "/styles/value" as *;
+@use "@/styles/value" as *;
 
-$Scale: 1.3;
+$Scale: 1.5;
 
 #hoverTips2 {
   opacity: 0;
@@ -18,23 +18,24 @@ $Scale: 1.3;
   max-width: 50%;
   position: fixed;
   z-index: 10000000000;
-  padding: 5px 10px;
+  padding: 5px 14px;
   font-size: 15px;
   transform: translate(20px, -100%) scale($Scale);
-  border-radius: 5px;
-  backdrop-filter: $blur-effect;
-  background: Color(.5, .3);
+  backdrop-filter: $blur-effect-3;
+  background: Color(.1, .5);
   pointer-events: none;
   opacity: 0;
   width: 0px;
   height: 0px;
   overflow: hidden;
   transition:
-    all $transition-duration $transition-timing-function $transition-delay,
-    opacity $transition-duration ease-in-out .4s,
-    transform 1s cubic-bezier(1, 0, 0, 1) .3s,
-    width .3s $transition-timing-function .3s,
-    height .3s $transition-timing-function .3s, ;
+    all DefaultTransition(),
+    top 0s,
+    left 0s,
+    transform DefaultTransition($transition-duration, .7s),
+    opacity DefaultTransition($transition-duration, .3s),
+    width cubic-bezier(0, .72, .16, .96) .3s,
+    height cubic-bezier(0, .72, .16, .96) .3s;
 
   * {
     color: Color();
@@ -44,24 +45,15 @@ $Scale: 1.3;
     font-size: 18px;
   }
 
-  &:before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    filter: url(#noiseFilter);
-    opacity: .15;
-    mix-blend-mode: multiply;
-  }
-
   &.show {
     transform: translate(20px, -100%);
     opacity: 1;
     transition:
-      all $transition-duration $transition-timing-function $transition-delay,
-      opacity 1s cubic-bezier(1, 0, 0, 1) 0s,
-      transform 1s cubic-bezier(1, 0, 0, 1) 0s,
-      width 1s cubic-bezier(0, 1, 0, 1) 0s,
-      height 1s cubic-bezier(0, 1, 0, 1) 0s, ;
+      all DefaultTransition(),
+      top 0s,
+      left 0s,
+      width cubic-bezier(0, .72, .16, .96) .3s,
+      height cubic-bezier(0, .72, .16, .96) .3s;
   }
 
   $Translate: translate(calc(-100% - 20px), -100%) "LeftTop",

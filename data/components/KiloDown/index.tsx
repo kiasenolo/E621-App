@@ -136,32 +136,34 @@ export const InnerContent: NextPage<React.ComponentProps<"blockquote">> = (Prop)
 /*******/
 
 export const Title: NextPage<React.ComponentProps<"h1">> = (Prop) => {
-  return (
-    <Link href={`#${Prop.id ?? ""}`}>
-      <div className={style["Title"]} id={Prop.id}>
-        <Before>
-          <span />
-        </Before>
-        <div className={style["Text"]}>{Prop.children ? <h1 {...Prop} /> : <h1 {...Prop} >{"Untitle"}</h1>}</div>
-        <After />
-        <ClipLine />
-      </div>
+  const ctn = <div className={style["Title"]} id={Prop.id}>
+    <Before>
+      <span />
+    </Before>
+    <div className={style["Text"]}>{Prop.children ? <h1 {...Prop} /> : <h1 {...Prop} >{"Untitle"}</h1>}</div>
+    <After />
+    <ClipLine />
+  </div>
+  return Prop.id ?
+    <Link href={`#${Prop.id}`}>
+      {ctn}
     </Link>
-  );
+    : ctn;
 };
 
 /*******/
 
 export const Subtitle: NextPage<React.ComponentProps<"h2">> = (Prop) => {
-  return (
-    <Link href={`#${Prop.id ?? ""}`}>
-      <div className={style["Subtitle"]}>
-        <Before />
-        <div className={style["Text"]}>{Prop.children ? <h2 {...Prop} /> : <h2 {...Prop} >{"No Any Content"}</h2>}</div>
-        <After />
-      </div>
+  const ctn = <div className={style["Subtitle"]}>
+    <Before />
+    <div className={style["Text"]}>{Prop.children ? <h2 {...Prop} /> : <h2 {...Prop} >{"No Any Content"}</h2>}</div>
+    <After />
+  </div>
+  return Prop.id ?
+    <Link href={`#${Prop.id}`}>
+      {ctn}
     </Link>
-  );
+    : ctn;
 };
 
 /*******/
@@ -169,14 +171,15 @@ export const Subtitle: NextPage<React.ComponentProps<"h2">> = (Prop) => {
 
 
 export const Thirdtitle: NextPage<React.ComponentProps<"h3">> = (Prop) => {
-  return (
-    <Link href={`#${Prop.id ?? ""}`}>
-      <div className={style["Thirdtitle"]}>
-        <span className={style["BeforeLine"]} />
-        <div className={style["Text"]}>{Prop.children ? <h3 {...Prop} /> : <h3 {...Prop} >{"Empty"}</h3>}</div>
-      </div>
+  const ctn = <div className={style["Thirdtitle"]}>
+    <span className={style["BeforeLine"]} />
+    <div className={style["Text"]}>{Prop.children ? <h3 {...Prop} /> : <h3 {...Prop} >{"Empty"}</h3>}</div>
+  </div>
+  return Prop.id ?
+    <Link href={`#${Prop.id}`}>
+      {ctn}
     </Link>
-  );
+    : ctn;
 };
 
 export default {

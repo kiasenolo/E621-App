@@ -1,6 +1,6 @@
-@use "/styles/value" as *;
-@use "/styles/init/input.scss" as *;
-@use "/styles/init/base.scss" as *;
+@use "@/styles/value" as *;
+@use "@/styles/init/input.scss" as *;
+@use "@/styles/init/base.scss" as *;
 
 $edge-clip-size-1: 20px;
 $edge-clip-size-2: 10px;
@@ -11,7 +11,6 @@ $edge-clip-size-3: 5px;
 }
 
 #KIASE_APP {
-
   #CursorEffects {
     z-index: 100;
   }
@@ -64,9 +63,6 @@ $edge-clip-size-3: 5px;
       transform $owo,
       background-color $owo;
 
-    display: none;
-
-
     >.DisableText {
       opacity: 0;
       pointer-events: none;
@@ -110,13 +106,14 @@ $edge-clip-size-3: 5px;
             min-height: $size;
             max-width: $size;
             max-height: $size;
-            border-radius: 5px;
             margin: 5px;
-            border: 4px solid Color(.5, .5);
+            border: 2px solid Color(.5, .5);
 
-            &:hover {
+            &:hover,
+            &:active {
+              transition: none;
               transform: scale(1.1);
-              filter: brightness(1.1);
+              border: 4px solid Color(.5, .5);
             }
 
             &:active {
@@ -155,12 +152,10 @@ $edge-clip-size-3: 5px;
       opacity: 1;
       $owo: DefaultTransition(.3s, .5s);
       box-shadow: inset 0 -3px 0 Color(1, .3), 0 -3px 30px Color(.25, .4);
-      border-radius: 0 0 10px 10px;
       background-color: Color(.1, .5);
       transition:
         all DefaultTransition(),
         transform $owo,
-        border-radius $owo,
         background-color $owo;
 
       >.Frame {
@@ -203,11 +198,9 @@ $edge-clip-size-3: 5px;
         opacity: 1;
         $owo: DefaultTransition(.3s, .5s);
         box-shadow: inset 0 -5px Color(1, .3), 0 -3px 30px Color(.25, .4);
-        border-radius: 0 0 10px 10px;
         transition:
           all DefaultTransition(),
-          transform $owo,
-          border-radius $owo;
+          transform $owo;
 
         >.Frame {
           transform: none;
@@ -219,7 +212,6 @@ $edge-clip-size-3: 5px;
   }
 
   #Main {
-    background-color: #000;
     zoom: 100%;
 
     &.hideCursor {
@@ -407,7 +399,6 @@ $edge-clip-size-3: 5px;
       left: 50%;
       background-color: Color(.08, .5);
       padding: 10px 100px;
-      border-radius: 10px;
       backdrop-filter: $blur-effect-4;
       color: Color();
       opacity: 0;
@@ -418,7 +409,8 @@ $edge-clip-size-3: 5px;
       animation-fill-mode: forwards;
 
       &.hide {
-        animation-timing-function: cubic-bezier(.6, 0, 0, 1);
+        animation-duration: .3s;
+        animation-timing-function: cubic-bezier(.37,.43,.31,.98);
         animation-name: notiHide;
       }
     }
@@ -707,7 +699,7 @@ $edge-clip-size-3: 5px;
 
 @keyframes notiShow {
   0% {
-    transform: translate(-50%, 200%) scale(.8);
+    transform: translate(-50%, 200%) scale(1.5);
   }
 
   100% {

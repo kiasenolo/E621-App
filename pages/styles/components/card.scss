@@ -14,7 +14,7 @@
   .previewImage {
     z-index: 1;
     pointer-events: none;
-    background: Color(.2);
+    background: Color(.2,.5);
     @include GridFrame();
 
     .vid {
@@ -69,19 +69,14 @@
             transform: skewX(10deg);
           }
 
-          &.up {
+          &.total {
             z-index: 10;
             background: Color(.08, .4);
           }
 
-          &.down {
-            z-index: 5;
-            background: Color(.2, .4);
-          }
-
           &.fav {
             z-index: 0;
-            background: Color(.3, .4);
+            background: Color(.2, .4);
           }
         }
       }

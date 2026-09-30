@@ -37,15 +37,17 @@
 }
 
 .ClipLineLarge {
-  clip-path: polygon(0.2% 0, 100% 0%, 99.8% 100%, 0% 100%);
+  $size: 5px;
+  clip-path: polygon($size 0, 100% 0%, calc(100% - $size) 100%, 0% 100%);
   background-color: Color(.4);
   padding: 5px;
   margin: 10px 10px;
   text-align: center;
   display: block;
+  letter-spacing: 2px;
+  font-size: 1rem;
 
   span {
-    font-size: 20px;
     color: Color();
   }
 
@@ -53,15 +55,19 @@
     background-color: Color(.5);
     margin: 10px 0;
 
+    &,
+    * {
+      transition-duration: .3s;
+    }
+
     span {
-      letter-spacing: 5px;
+      letter-spacing: 4px;
       text-shadow: 0 0 10px Color();
     }
   }
 
   &[set-title] {
     clip-path: none;
-    border-radius: 5px;
   }
 }
 
@@ -74,9 +80,12 @@
   background-color: Color(.3, .3);
   margin: 10px 0;
   padding: 10px;
-  border-radius: 5px;
   display: block;
   backdrop-filter: $blur-effect;
+
+  p {
+    margin: 0 !important;
+  }
 
   blockquote {
     margin: 0;
@@ -121,6 +130,8 @@
 
   &:hover,
   &:active {
+    @include NoneTrans();
+
     &::selection {
       background: Color(.3);
     }
@@ -132,13 +143,13 @@
 }
 
 .EmpText {
-  padding: 0 15px;
+  padding: 2px 8px;
   margin: 5px;
-  background-color: Color(.3);
-  border-radius: 5px;
+  background-color: Color(.2);
 
   &:hover {
-    background-color: Color(.5);
+    background-color: Color(.35);
+    @include NoneTrans();
 
     span {
       color: Color();
@@ -151,12 +162,13 @@
   font-family: monospace;
   padding: 0 15px;
   margin: 0 7px;
-  outline: 2px solid Color(.4);
-  border-radius: 5px;
+  outline: 1px solid Color(.4);
   background-color: Color(.2, .2);
 
   &:hover {
+    @include NoneTrans();
     outline: 2px solid Color();
+    background-color: Color(.4, .3);
 
     span {
       color: Color();
@@ -168,7 +180,7 @@
 
 .SmallText {
   span {
-    font-size: 15px;
+    font-size: .9rem;
     opacity: .5;
   }
 }
@@ -194,13 +206,15 @@
     }
   }
 
+  $tobdPad: 8px;
+
   >.Text {
     background-color: Color(.2);
-    padding: 5px 40px;
+    padding: $tobdPad 50px;
 
     h1 {
       display: inline;
-      font-size: 25px;
+      font-size: 1.5rem;
       letter-spacing: 2px;
       color: Color();
       font-weight: normal;
@@ -222,6 +236,9 @@
   }
 
   &:hover {
+    * {
+      transition-duration: .1s;
+    }
 
     >.Before {
       background-color: Color(.5);
@@ -236,7 +253,7 @@
 
     >.Text {
 
-      padding: 5px 80px 5px 60px;
+      padding: $tobdPad 80px $tobdPad 60px;
       background-color: Color(.5);
 
       h1 {
@@ -269,14 +286,16 @@
     background-color: Color(.7);
   }
 
+  $tobdPad: 8px;
+
   >.Text {
     background-color: Color(.4);
-    padding: 5px 30px;
+    padding: $tobdPad 30px;
 
     h2 {
       display: inline;
       letter-spacing: 2px;
-      font-size: 20px;
+      font-size: 1.2rem;
       color: Color();
       font-weight: normal;
     }
@@ -292,6 +311,9 @@
   }
 
   &:hover {
+    * {
+      transition-duration: .1s;
+    }
 
     >.Before {
       width: 8px;
@@ -299,7 +321,7 @@
     }
 
     >.Text {
-      padding: 5px 80px 5px 50px;
+      padding: $tobdPad 80px $tobdPad 50px;
       background-color: Color(.5);
 
       h2 {
@@ -338,7 +360,7 @@
 
     h3 {
       display: inline;
-      font-size: 20px;
+      font-size: 1.15rem;
       color: Color();
       font-weight: normal;
     }
@@ -346,11 +368,13 @@
     * {
       color: Color();
     }
-
-
   }
 
   &:hover {
+    * {
+      transition-duration: .1s;
+    }
+
     >.BeforeLine {
       width: 2px;
       padding: 6px 0;

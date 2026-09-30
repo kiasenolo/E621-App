@@ -5,6 +5,8 @@ import makeZip from "./module/makeZip"
 import type { consoleColorList, consoleStyleList } from "./type/console"
 import { useEffect, useState } from "react"
 
+type UrlParamValue = string | number | boolean | undefined;
+
 export default {
   fullscreen: {
     full: toFullscreen,
@@ -99,7 +101,48 @@ export default {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
     }).join(''))
   },
-  dateFormat: (_date: number, format: string) => {
+  formatDuration: function (
+    ms: number,
+    units?: {
+      d?: string | false,
+      h?: string | false,
+      m?: string | false,
+      s?: string | false,
+      ms?: string | false,
+    }
+  ): string {
+    const ALL_UNITS: ReadonlyArray<readonly [string | false, number]> = [
+      [units?.d ?? '天', 86_400_000],
+      [units?.h ?? '小時', 3_600_000],
+      [units?.m ?? '分鐘', 60_000],
+      [units?.s ?? '秒', 1_000],
+      [units?.ms ?? '毫秒', 1],
+    ];
+
+    const UNITS = ALL_UNITS.filter(
+      (u): u is readonly [string, number] => u[0] !== false
+    );
+
+    if (UNITS.length === 0) throw new RangeError('at least one unit must be enabled');
+    if (!Number.isFinite(ms)) throw new RangeError('ms must be a finite number');
+    if (ms < 0) return '-' + this.formatDuration(-ms, units);
+
+    let remaining = Math.round(ms);
+
+    const parts: string[] = [];
+    for (const [name, size] of UNITS) {
+      const value = Math.floor(remaining / size);
+      if (value > 0) {
+        parts.push(`${value}${name}`);
+        remaining %= size;
+      }
+    }
+
+    if (parts.length === 0) return `0${UNITS[UNITS.length - 1][0]}`;
+
+    return parts.join(' ');
+  },
+  dateFormat: (_date: string | number | Date, format: string) => {
     /* 
      * :hh: - 12小時制的小時
      * :HH: - 24小時制的小時
@@ -136,6 +179,9 @@ export default {
       .replaceAll("-dd-", pad(date.getDate()))
 
     return rep01
+  },
+  getRandomInRange: (min: number, max: number) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   },
   afkClockTimer: function () {
     const [time, setTime] = useState<string>("--:--")
@@ -252,6 +298,14 @@ export default {
   },
   htmlElement,
   str: {
+    textOverflowReplace: (str: string, max: number, ifOver: string = "...") => {
+      return `${str.slice(0, max)}${str.length > max ? ifOver : ""}`
+    },
+    arrToStr: (str: string | string[], join?: string) => {
+      if (typeof str === "object") {
+        return str.join(join ?? "\n");
+      } return str
+    },
     capitalizeWords: (str: string) => {
       return str.toLowerCase().replace(/\b[a-z]/g, function (letter) {
         return letter.toUpperCase();
@@ -267,6 +321,80 @@ export default {
     },
     mulitStartWith: function (fixs: string[], target: string) { return this.mulit_with("start", fixs, target) },
     mulitEndWith: function (fixs: string[], target: string) { return this.mulit_with("end", fixs, target) },
+    splitTextByLength: function (text: string, maxLength: number) {
+      if (!text || maxLength <= 0) return [];
+      const result = [];
+      for (let i = 0; i < text.length; i += maxLength) {
+        result.push(text.slice(i, i + maxLength));
+      }
+      return result;
+    },
+  },
+  arrayFileNameShot: function (a: string, b: string) {
+    return a.localeCompare(b, undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    });
+  },
+  shuffleArray: function <T>(arr: T[]): T[] {
+    const array = [...arr]
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  },
+  toMdID: function (level: number, content?: string) {
+    const res = (content || "noting")
+      .toLocaleLowerCase()
+      .replaceAll(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g, "_")
+      .replaceAll(" ", "-")
+
+    return `${level}-${res}`
+  },
+  updateUrlWithReplace: function (
+    params: Record<string, UrlParamValue>,
+    overwrite: boolean = false
+  ): void {
+
+    const decode = (s: string): string => decodeURIComponent(s.replace(/\+/g, ' '));
+
+    const parseSearch = (search: string): Map<string, string | undefined> => {
+      const map = new Map<string, string | undefined>();
+
+      search
+        .replace(/^\?/, '')
+        .split('&')
+        .filter(Boolean)
+        .forEach((pair) => {
+          const idx = pair.indexOf('=');
+          if (idx === -1) {
+            map.set(decode(pair), undefined);
+          } else {
+            map.set(decode(pair.slice(0, idx)), decode(pair.slice(idx + 1)));
+          }
+        });
+
+      return map;
+    };
+
+    const url = new URL(window.location.href);
+
+    const query = overwrite ? new Map<string, string | undefined>() : parseSearch(url.search);
+
+    Object.entries(params).forEach(([key, value]) => {
+      query.set(key, value === undefined ? undefined : String(value));
+    });
+
+    const search = Array.from(query.entries())
+      .map(([k, v]) =>
+        v === undefined
+          ? encodeURIComponent(k)
+          : `${encodeURIComponent(k)}=${encodeURIComponent(v)}`
+      )
+      .join('&');
+
+    window.history.replaceState({}, '', `${url.pathname}${search ? `?${search}` : ''}${url.hash}`);
   },
   fs
 }

@@ -16,7 +16,8 @@ $_active-clr-func: null;
 
   $_current-style-clr-func: meta.get-function($clr) !global;
 
-  [kilo-style] {
+  [kilo-style],
+  [k-sty] {
     &:is(table) {
       font-size: 20px;
       max-width: -webkit-fill-available;
