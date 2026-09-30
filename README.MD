@@ -14,8 +14,9 @@
 可以丟issues 這樣我就看到了  
 你也可以丟pr 但 我....可能會花很多時間去消化就是了  
 
-預設會用E926(就 安全模式的E621)
-如果想看到一些....東西的話 請自己手動吧.env的E621_BASE_URL改成E621的鏈接
+預設會用E926(就 安全模式的E621)  
+如果想看到一些....東西的話 請自己手動開設定 然後進賬號設定裡面改
+![account setting](_IMAGES/accountSetting.png)  
 
 ***
 
@@ -25,32 +26,24 @@
 但是 熟了之後應該會蠻好玩的  
 然後下面是一些截圖 你可以自己看看 
 
-![alt text](_IMAGES/image.png)  
-![alt text](_IMAGES/image-1.png)  
-![alt text](_IMAGES/image-2.png)  
-![alt text](_IMAGES/image-3.png)  
+![a lot of windows](_IMAGES/image1.png)  
+![workspace manager](_IMAGES/image2.png)  
+![start menu](_IMAGES/image3.png)  
+![login screen](_IMAGES/image4.png)  
+![run box](_IMAGES/image5.png)  
 
-桌布是raferafe的 他畫的很好看  
-https://www.pixiv.net/users/53255280  
-頭貼是Yonkagor畫的 他做的音樂很好聼  
-https://x.com/YonKaGor  
-https://www.youtube.com/@YonKaGor  
-
-哦 [I Still Create](https://www.youtube.com/watch?v=84F_UdwTcAg) 很好聼 去聽 然後MV很帥
+桌布是kuttoyaki的 頭貼也是 他畫的很好看  
+https://x.com/Kuttoyaki 
 
 對了 預設是沒任何賬號的 上面的演示圖是 我作品集裏面的版本  
 
 # 已知問題
 沒有自動登錄的選項 預設都是開著的  
 postSearch的按鈕只能拖 暫時不能按（emm....雖然在postGetById裏面 你真的只能拖）  
-中英文混在一起 抽象  
-建好賬號不會自己登錄  
+你如果沒耐心等視窗載入 然後你在這種時候 開工作區編輯器 你會直接損失您的視窗 （有種人生到頭的感覺）  
 ## 甚至有些東西還沒做
 設定裏面很空  
 沒下載隊列  
-## 其他的東西
-有時候 視窗還原不回來怎麽辦？  
-那就右鍵圖示 點Reset Rect 然後隨便一個size 就可以了  
 
 ***
 
@@ -69,9 +62,26 @@ postSearch的按鈕只能拖 暫時不能按（emm....雖然在postGetById裏面
 抱歉 但 我現在暫時不想改掉這個習慣  
 
 然後還有一些神奇東西：
-1. 我的 CSS 會用到一些你可能沒有在資料夾裏面看到的字體 因爲這東西是從我作品集扣過來的 所以 殘留物
-2. 程式碼會有一些 AI 生成時留下的註解 我可能沒刪到 這 十分正常
-3. 我程式碼寫很爛
+首先我的 CSS 會用到一些你可能沒有在資料夾裏面看到的字體 因爲這東西是從我作品集扣過來的 所以 殘留物  
+其次程式碼會有一些 AI 生成時留下的註解 我可能沒刪到 這 十分正常  
+再來 我的命名方式基本上來講 就是 你要學會通靈 或者說看他用在哪裡 你才能大概知道這是幹嘛用的  
+然後 程式碼的註解非常有攻擊性 但不是特別針對誰 ~~都是在針對我自己~~  
+最後我程式碼寫很爛  
+就這樣  
+
+# 那些是AI生的？ （跟風 寫個這個）
+## AI生的
+- 工作區的邏輯大部分邏輯
+- 古希臘掌管存檔的神 （class WorkSpaceActions）
+- 視窗管理器的邏輯 （Window.tsx / WindowsManager.ts）
+- 調用E621_API的工具 / type.d.ts （我懶）
+- 調用OPFS的工具 （我真的懶）
+- 其他複雜燒腦的大東西
+## 你可能覺得是AI 但其實是我手刻的
+- 樣式/過渡動畫/反正 所有界面設計的工作
+- 全局的拖放邏輯
+- 搜尋的邏輯 （有fuse.js應該...手刻....不難...吧？）
+- 其他看起來簡單的小東西
 
 ***
 
