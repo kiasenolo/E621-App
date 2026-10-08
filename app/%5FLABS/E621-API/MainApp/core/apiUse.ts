@@ -96,8 +96,6 @@ export class E621_API_CORE {
     }
 
     const res = await fetch(url, { headers });
-    console.log(url)
-    console.log(headers)
     if (!res.ok) {
       console.error(`E621 Fetch Error: ${res.status} ${res.statusText}`);
       const body = await res.json().catch(() => null);
