@@ -10,15 +10,13 @@
     "ver": "next -v"
   },
   "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
-    "@types/react-dom": "18.0.10",
+    "@types/react-dom": "^19.3.0",
     "clsx": "^2.1.1",
     "dexie": "^4.4.2",
     "dexie-export-import": "^4.4.0",
     "eslint": "8.33.0",
     "eslint-config-next": "^13.5.11",
     "fuse.js": "^7.1.0",
-    "howler": "^2.2.4",
     "js-sha256": "^0.11.1",
     "jszip": "^3.10.1",
     "lodash": "^4.17.21",
@@ -27,21 +25,12 @@
     "node-vibrant": "^4.0.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-intersection-observer": "^10.0.0",
-    "react-syntax-highlighter": "^15.6.6",
-    "rehype-raw": "^7.0.0",
-    "rehype-stringify": "^10.0.1",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
     "sass": "^1.94.2"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.21",
     "@types/node": "22.14.1",
     "@types/react": "^19.2.15",
-    "@types/react-syntax-highlighter": "^15.5.13",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
     "typescript": "5.8.3"
   }
 }
