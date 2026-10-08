@@ -433,8 +433,15 @@ export const promises = {
     const { parentDir, name } = await walk(segs);
     try {
       await parentDir.removeEntry(name, { recursive });
-    } catch {
-      throw new OPFSError('ENOENT', `ENOENT: no such file or directory, rmdir '${path}'`);
+    } catch (e) {
+      const errName = (e as { name?: string })?.name;
+      if (errName === 'NotFoundError') {
+        throw new OPFSError('ENOENT', `ENOENT: no such file or directory, rmdir '${path}'`);
+      }
+      if (errName === 'InvalidModificationError') {
+        throw new OPFSError('ENOTEMPTY', `ENOTEMPTY: directory not empty, rmdir '${path}'`);
+      }
+      throw e;
     }
   },
 
@@ -479,24 +486,69 @@ export const promises = {
 
   /**
    * Rename (move) a file or directory.
-   * Note: OPFS has no native rename; this copies then deletes the source.
+   * Uses native FileSystemHandle.move() (atomic) when available; otherwise
+   * falls back to copy + delete, cleaning up the partial copy on failure.
+   * Throws EEXIST if the destination already exists.
    */
   async rename(oldPath: string, newPath: string): Promise<void> {
+    const oldSegs = segments(oldPath);
+    const newSegs = segments(newPath);
+    if (oldSegs.join('/') === newSegs.join('/')) return;
+
     const st = await promises.stat(oldPath);
-    if (st.isDirectory()) {
-      await _copyDir(oldPath, newPath);
-      await promises.rm(oldPath, { recursive: true });
-    } else {
-      const data = await promises.readFile(oldPath);
-      await promises.writeFile(newPath, data);
-      await promises.unlink(oldPath);
+    const isDir = st.isDirectory();
+    if (isDir && newSegs.length > oldSegs.length && oldSegs.every((s, i) => s === newSegs[i])) {
+      throw new OPFSError('EINVAL', `EINVAL: cannot move a directory into itself, rename '${oldPath}' -> '${newPath}'`);
     }
+    if (await promises.exists(newPath)) {
+      throw new OPFSError('EEXIST', `EEXIST: file already exists, rename '${oldPath}' -> '${newPath}'`);
+    }
+
+    const src = await walk(oldSegs);
+    const dest = await walk(newSegs, { create: true });
+
+    // Native move: atomic, no data copy.
+    try {
+      const handle = isDir
+        ? await src.parentDir.getDirectoryHandle(src.name)
+        : await src.parentDir.getFileHandle(src.name);
+      const mv = (handle as unknown as {
+        move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void>;
+      }).move;
+      if (typeof mv === 'function') {
+        await mv.call(handle, dest.parentDir, dest.name);
+        return;
+      }
+    } catch { /* fall back to copy + delete */ }
+
+    // Fallback: copy, then delete source only after the copy fully succeeded.
+    try {
+      if (isDir) await _copyDir(oldPath, newPath);
+      else await promises.copyFile(oldPath, newPath);
+    } catch (e) {
+      await promises.rm(newPath, { recursive: true, force: true }).catch(() => {});
+      throw e;
+    }
+    await promises.rm(oldPath, { recursive: true });
   },
 
-  /** Copy a file. */
+  /** Copy a file (streamed, no full in-memory load). */
   async copyFile(src: string, dest: string): Promise<void> {
-    const data = await promises.readFile(src);
-    await promises.writeFile(dest, data);
+    const s = await walk(segments(src));
+    let file: File;
+    try {
+      file = await (await s.parentDir.getFileHandle(s.name)).getFile();
+    } catch {
+      throw new OPFSError('ENOENT', `ENOENT: no such file or directory, copyfile '${src}'`);
+    }
+    const d = await walk(segments(dest), { create: true });
+    const out = await (await d.parentDir.getFileHandle(d.name, { create: true })).createWritable();
+    try {
+      await file.stream().pipeTo(out); // closes `out` on success, aborts on failure
+    } catch (e) {
+      await out.abort().catch(() => {});
+      throw e;
+    }
   },
 
   /** Truncate a file to a specified length. */

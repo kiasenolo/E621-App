@@ -1,7 +1,7 @@
 import type { NextPage } from 'next';
 import style from './style.module.scss';
 import { useEffect, useMemo, useState } from 'react';
-import { Kiasole, setCustomCommandType } from '@/pages/_app';
+import { Kiasole, setCustomCommandType } from '@/app/_app';
 import Link from 'next/link';
 import functions from '@/data/module/functions';
 import HeadSetting from '../HeadSetting';

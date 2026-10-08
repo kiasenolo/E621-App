@@ -1,0 +1,203 @@
+@use "@/styles/value" as *;
+@use "@/styles/init/input.scss" as *;
+@use "@/styles/init/base.scss" as *;
+
+$edge-clip-size-1: 20px;
+$edge-clip-size-2: 10px;
+
+@mixin clip($clipSize) {
+  clip-path: polygon(100% 0, 100% calc(100% - $clipSize), calc(100% - $clipSize)100%, 0 100%, 0 $clipSize, $clipSize 0);
+}
+
+#InputOverlay {
+  z-index: 60;
+  @include FullDiv();
+  @include GridFrame();
+  position: fixed;
+  pointer-events: none;
+
+  * {
+    color: Color();
+  }
+
+  >* {
+    pointer-events: none;
+  }
+
+  .Input {
+    @include GridFrame();
+
+    >.frame {
+      @include FlexCenter2();
+      background-color: #0000;
+
+      *,
+      & {
+        pointer-events: none;
+      }
+
+      .menu {
+        @include GridFrame();
+        backdrop-filter: $blur-effect;
+        background-color: Color(1, .5);
+        clip-path: polygon(100% 50%, 100% 50%, 100% 50%, 0 50%, 0 50%, 0 50%);
+        transition: cubic-bezier(.9, 0, .42, .99) .3s;
+        padding: 30px;
+        max-height: 90vh;
+        min-width: 80vw;
+        overflow: hidden;
+
+        button {
+          opacity: 0;
+          transition: cubic-bezier(.9, 0, .42, .99) .3s;
+          outline: none;
+          border: none;
+          background-color: Color(.4, .2);
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          padding: 15px;
+          @include clip($edge-clip-size-2);
+          gap: 5px;
+          font-size: 25px;
+
+          .name {
+            font-size: 30px;
+          }
+
+          .info {
+            font-size: 20px;
+            opacity: .5;
+          }
+
+          &:hover,
+          &:active {
+            transition-duration: 0s;
+            background-color: Color(.6, .5);
+          }
+
+          &:active {
+            background-color: Color(.08, .8);
+
+            >* {
+              transition-duration: 0s;
+              opacity: .5;
+            }
+          }
+        }
+      }
+
+      &.show {
+        background-color: Color(.02, .3);
+
+        *,
+        & {
+          pointer-events: all;
+        }
+
+        button {
+          opacity: 1;
+          transition: DefaultTransition();
+        }
+
+        .menu {
+          @include clip($edge-clip-size-1);
+          transition: DefaultTransition();
+          background-color: Color(.05, .5);
+        }
+      }
+    }
+  }
+
+  .Select {
+    >.frame {
+      .menu {
+        >.frame {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          overflow: auto;
+          gap: 10px;
+          padding: 15px;
+        }
+      }
+    }
+  }
+
+  .TextInput,
+  .Message {
+    >.frame {
+      .menu {
+        padding: 20px;
+        width: auto;
+        max-height: 90vh;
+
+        >.frame {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          overflow: hidden;
+
+          .input {
+            opacity: 1;
+          }
+
+          .text {
+            font-size: 35px;
+            text-align: center;
+            padding: 40px 100px;
+            overflow: auto;
+            mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 5%, rgba(0, 0, 0, 1) 95%, rgba(0, 0, 0, 0) 100%);
+          }
+
+          .button {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 10px;
+
+            button {
+              padding: 15px 100px;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .TextInput {
+    >.frame {
+      .menu {
+        >.frame {
+
+          .input {
+            opacity: 1;
+            padding-bottom: 0 20px;
+            background-color: #fff2;
+            outline: none;
+            border: none;
+            text-align: center;
+            font-size: 35px;
+            padding: 15px;
+            @include clip($edge-clip-size-2);
+          }
+
+          .text {
+            padding-bottom: 20px;
+          }
+        }
+      }
+    }
+  }
+
+  &.PowerSaveingMode {
+    .menu {
+      backdrop-filter: none !important;
+      background-color: Color(.05, .9) !important;
+
+      *,
+      & {
+        clip-path: none !important;
+      }
+    }
+  }
+}

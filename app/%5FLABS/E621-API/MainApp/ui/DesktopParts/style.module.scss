@@ -1,0 +1,132 @@
+@use "@/styles/value" as *;
+@use "../../styles/kiaseStyle" as *;
+
+.Menu {
+  z-index: 100;
+  pointer-events: none;
+  position: absolute;
+  overflow: hidden;
+
+  .Buttons {
+    pointer-events: all;
+    transition: all DefaultTransition(),
+      transform 0s,
+      top 0s,
+      left 0s;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+    overflow: hidden;
+    @include Freedom();
+    top: 0;
+    left: 50%;
+    display: flex;
+    flex-direction: column;
+    backdrop-filter: $blur-effect-4;
+    background-color: Color(.02, .5);
+
+    @include KIASE_STYLE();
+
+    button {
+      text-align: left;
+
+      *:not(:hover, :active),
+      &:not(:hover, :active) {
+        background: none !important;
+      }
+
+      &:disabled {
+        opacity: .5;
+      }
+    }
+
+    & {
+      &.tl {
+        transform: translate(0%, 0%);
+
+      }
+
+      &.tc {
+        transform: translate(-50%, 0%);
+
+      }
+
+      &.tr {
+        transform: translate(-100%, 0%);
+
+      }
+
+      &.cl {
+        transform: translate(0%, -50%);
+
+      }
+
+      &.cc {
+        transform: translate(-50%, -50%);
+
+      }
+
+      &.cr {
+        transform: translate(-100%, -50%);
+
+      }
+
+      &.bl {
+        transform: translate(0%, -100%);
+
+      }
+
+      &.bc {
+        transform: translate(-50%, -100%);
+
+      }
+
+      &.br {
+        transform: translate(-100%, -100%);
+
+      }
+    }
+
+  }
+
+  &.hide {
+    pointer-events: none;
+
+    .Buttons {
+      opacity: 0;
+
+      &.tl,
+      &.tc,
+      &.tr {
+        clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
+
+      }
+
+      &.cl,
+      &.cc,
+      &.cr {
+        clip-path: polygon(0 50%, 100% 50%, 100% 50%, 50%);
+      }
+
+      &.bl,
+      &.bc,
+      &.br {
+        clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+      }
+    }
+  }
+}
+
+.Background {
+  position: relative;
+  overflow: hidden;
+
+  img,
+  video {
+    transition: none;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 100% 100%;
+    transform-origin: 100% 100%;
+    transform: scale(1.1);
+  }
+}

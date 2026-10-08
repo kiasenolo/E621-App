@@ -1,0 +1,187 @@
+@use "@/styles/value" as *;
+
+#ERROR {
+  z-index: 2;
+  @include FlexCenter2();
+  gap: 15px;
+  padding-top: 25px;
+  align-items: stretch;
+
+  h1,
+  h2,
+  h3,
+  p {
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    color: Color();
+  }
+
+
+  h1,
+  p {
+    padding: 8px 0;
+  }
+
+  h1 {
+    font-size: 50px;
+  }
+
+  h2,
+  h3 {
+    font-size: 25px;
+    opacity: .5;
+  }
+
+  h2 {
+    padding-top: 10px;
+  }
+
+  h3 {
+    font-size: 20px;
+    padding-bottom: 10px;
+  }
+
+
+  p {
+    font-size: 30px;
+  }
+
+  button {
+    background-color: Color(.2);
+    border: none;
+    outline: none;
+    font-size: 20px;
+    padding: 10px 80px;
+    border-top: 5px solid #0000;
+    color: LightColor(.3);
+    font-weight: bold;
+
+    &:hover,
+    &:active,
+    &.pressed {
+      transition: all 0s, scale DefaultTransition();
+      background-color: Color();
+      color: #000;
+    }
+
+    &:active {
+      background-color: Color(.3);
+      color: Color(.2);
+    }
+
+    &.pressed {
+      scale: .9;
+      background-color: Color(.08);
+      color: Color(.8);
+    }
+  }
+
+  .area {
+    translate: 0 100px;
+    opacity: 0;
+  }
+
+  &.ready {
+    .area {
+      translate: none;
+      opacity: 1;
+    }
+  }
+
+  &.hide {
+    pointer-events: none;
+
+    .area {
+      transition: cubic-bezier(.73, .09, 1, .67) .3s;
+      translate: 0 -100px;
+      opacity: 0;
+    }
+  }
+
+  .btns {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding-top: 10px;
+  }
+}
+
+#APP {
+  @include FullDiv();
+  @include GridFrame();
+  overflow: hidden;
+
+  [kilo-style] {
+    &:is(input) {
+      &[type=range] {
+        border-radius: 0px;
+        height: 6px;
+        min-width: none;
+
+        &::-webkit-slider-thumb {
+          border-radius: 0px;
+        }
+      }
+    }
+  }
+
+  * {
+    font-family: genseki-font-tw, hack-nerd-font;
+  }
+
+  .winBackground {
+    overflow: hidden;
+    background-color: Color(.02);
+  }
+}
+.electron-drag {
+  -webkit-app-region: drag;
+}
+
+#Resolution {
+  z-index: 500;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 5%;
+  transition: none;
+  opacity: 1;
+
+  div {
+    font-family: hack-nerd-font;
+    background-color: Color(.08, .5);
+    padding: 5px 80px;
+    font-size: 20px;
+    color: Color();
+  }
+
+  &.hide {
+    opacity: 0;
+    transition: 1s ease-out .5s;
+  }
+}
+
+#Frame {
+  overflow: hidden;
+
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  img,
+  image,
+  video {
+    user-select: none;
+  }
+
+  input::placeholder {
+    color: Color(1, .5);
+  }
+
+  @include GridFrame();
+  overflow: hidden;
+
+}

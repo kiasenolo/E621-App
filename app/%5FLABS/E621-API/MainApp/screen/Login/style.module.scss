@@ -1,0 +1,401 @@
+@use "@/styles/value" as *;
+
+#Login {
+  background-color: #000;
+  overflow: hidden;
+}
+
+#Login {
+  @include GridFrame(true);
+  z-index: 5;
+  zoom: 60%;
+  overflow: hidden;
+
+  .UserList {
+    z-index: 5;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    justify-content: flex-start;
+    overflow: hidden;
+
+
+    >div {
+      transition: cubic-bezier(0, .49, 0, 1) 1s;
+      margin: 50px;
+      zoom: 90%;
+      overflow: auto;
+
+      .User {
+        @include GridFrame();
+        margin: 6px;
+        margin-top: 10px;
+        outline: 5px solid #0000;
+        border: none;
+        padding: 0;
+        width: 400px;
+        height: 100px;
+        background-color: #00000048;
+        backdrop-filter: $blur-effect-2;
+
+        .Main {
+          display: flex;
+          align-items: stretch;
+          padding-left: 10px;
+          gap: 10px;
+          z-index: 2;
+          overflow: hidden;
+
+          .avatar {
+            margin: 15px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            backdrop-filter: $blur-effect-2;
+            overflow: hidden;
+
+            .Background {
+              aspect-ratio: 1;
+              overflow: hidden;
+            }
+          }
+
+          .name {
+            @include FlexCenter();
+
+            span {
+              font-size: 28px;
+            }
+          }
+        }
+
+        >.Background {
+          z-index: 1;
+          filter: brightness(.5);
+          opacity: .3;
+        }
+
+        &:hover {
+          * {
+            transition: all 0s, transform DefaultTransition();
+          }
+
+          .Background {
+            filter: brightness(1.2);
+          }
+        }
+
+        &:active {
+          filter: brightness(.8);
+          transform: scale(.95);
+          transition: none;
+
+          .Background {
+            filter: brightness(1);
+          }
+        }
+      }
+    }
+  }
+
+  .LoginBoard {
+    @include GridFrame();
+    z-index: 3;
+
+    >div {
+      transition: cubic-bezier(0, .49, 0, 1) 1s;
+      display: flex;
+      align-items: center;
+      flex-direction: column;
+      justify-content: center;
+      gap: 30px;
+      transition: all cubic-bezier(.47, .19, 0, 1) .8s, opacity 0s;
+
+      $shadow : 0 0 20px #0008;
+
+      &.createAccount {
+        gap: 30px;
+
+        h1 {
+          font-size: 80px;
+          font-weight: normal;
+          padding: 5px 0px;
+          margin: 0px;
+          text-shadow: $shadow, $shadow, $shadow;
+        }
+
+        .CLIP {
+          height: 20px;
+        }
+
+        .input {
+          input {
+            width: 500px;
+
+            &[type=color] {
+              height: 50px;
+            }
+          }
+        }
+
+        .button {
+          button {
+            width: 500px;
+          }
+        }
+      }
+
+      .avatar {
+        transition-delay: 0s;
+      }
+
+      .name {
+        transition-delay: .1s;
+      }
+
+      .input,
+      .button {
+        transition-delay: .2s;
+      }
+
+      .avatar {
+        aspect-ratio: 1;
+        width: 250px;
+        border-radius: 50%;
+        backdrop-filter: $blur-effect-2;
+        overflow: hidden;
+
+        .Background {
+          aspect-ratio: 1;
+          overflow: hidden;
+        }
+      }
+
+      .name {
+        font-size: 50px;
+        letter-spacing: 3px;
+      }
+
+      .input {
+        display: flex;
+        flex-direction: column;
+
+        span {
+          font-size: 30px;
+          padding: 10px;
+          text-shadow: $shadow, $shadow, $shadow;
+        }
+
+        input {
+          padding: 10px 20px;
+          background-color: #0005;
+          outline: none;
+          border: none;
+          font-size: 30px;
+          width: 400px;
+          backdrop-filter: $blur-effect-2;
+
+          &::placeholder {
+            color: #fff8;
+          }
+        }
+      }
+
+      .button {
+        button {
+          outline: none;
+          border: none;
+          font-size: 30px;
+          background-color: #fff3;
+          padding: 10px 50px;
+          backdrop-filter: $blur-effect-2;
+
+          &:hover {
+            background-color: #fff;
+            color: #000;
+            transition: all 0s, transform DefaultTransition();
+          }
+
+          &:active {
+            background-color: #fff;
+            color: #000;
+            transition: none;
+            transform: scale(.9);
+            filter: brightness(.8);
+
+          }
+        }
+      }
+
+      .status {
+        font-size: 20px;
+      }
+
+      &.up,
+      &.down {
+        >* {
+          transition-delay: 1s;
+          transition-timing-function: cubic-bezier(0, .73, 0, 1);
+          transform: translateY(400px);
+        }
+
+        transition: cubic-bezier(.47, .19, 0, 1) .8s,
+        opacity 0s cubic-bezier(.47, .19, 0, 1) .8s;
+
+        opacity: 0;
+        gap: 100px;
+      }
+
+      &.up {
+        transform: translateY(-100%);
+      }
+
+      &.down {
+        transform: translateY(100%);
+      }
+
+      &.hide {
+        transform: translateY(-100%);
+      }
+    }
+  }
+
+  .Backdrop {
+    z-index: 2;
+    background: radial-gradient(circle, rgba(0, 0, 0, .5) 0%, rgba(0, 0, 0, 1) 100%);
+    opacity: .7;
+
+    &.newAccount {
+      opacity: .9;
+    }
+  }
+
+  .Backgrounds {
+    transition: cubic-bezier(0, .49, 0, 1) 1s;
+    overflow: hidden;
+    z-index: 1;
+    @include GridFrame();
+
+    >.img {
+      @include GridFrame();
+      overflow: hidden;
+
+      &.show {
+        z-index: 2;
+        opacity: 1;
+        transform: none;
+        transition: cubic-bezier(0, 1, .5, 1) 1s, filter cubic-bezier(0, 1, .5, 1) .5s, opacity ease .4s;
+      }
+
+      @mixin def() {
+        transition: ease .2s;
+        z-index: 1;
+        opacity: 0;
+        filter: blur(100px);
+      }
+
+      &.up {
+        @include def();
+        transform: scale(1.5) translateY(-30%);
+      }
+
+      &.down {
+        @include def();
+        transform: scale(1.5) translateY(30%);
+      }
+
+      &.hide {
+        @include def();
+        transition: ease .5s;
+        transform: scale(2);
+      }
+    }
+  }
+
+  .SelectStorage {
+    z-index: 20;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 30px;
+
+    button {
+      background-color: #fff3;
+      @include GridFrame();
+      border: none;
+      outline: none;
+      padding: 10px 50px;
+      backdrop-filter: $blur-effect-3;
+
+      span {
+        font-size: 25px;
+      }
+
+      .hov-txt {
+        transition: none;
+        opacity: 0;
+      }
+
+      &:active,
+      &:hover {
+        background-color: #fff;
+        transition: all 0s, transform DefaultTransition();
+
+        .hov-txt,
+        .txt {
+          transition: none;
+
+        }
+
+        .hov-txt {
+          opacity: 1;
+        }
+
+        .txt {
+          opacity: 0;
+        }
+
+        span {
+          transition: none;
+          color: #000;
+        }
+      }
+
+      &:active {
+        transition: none;
+        transform: scale(.9);
+        filter: brightness(.8);
+      }
+    }
+  }
+
+  &.hide {
+    opacity: 0;
+
+    *,
+    & {
+      pointer-events: none;
+      transition: none;
+    }
+
+    .UserList {
+      >div {
+        transform: translateX(-150%);
+      }
+    }
+
+    .LoginBoard {
+
+      >div {
+        gap: 50px;
+      }
+    }
+
+    .Backgrounds {
+      transform: scale(1.3);
+    }
+
+    .SelectStorage {
+      transform: translateX(50%);
+    }
+  }
+}

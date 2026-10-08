@@ -1,0 +1,1014 @@
+@use "@/styles/value" as *;
+@use "../../styles/kiaseStyle" as *;
+
+#Desktop {
+  background-color: #000;
+  overflow: hidden;
+}
+
+#Desktop {
+
+  & {
+    &.NONE_TRANSITION {
+      * {
+        transition: none !important;
+      }
+    }
+
+    &.NONE_FILTER {
+      * {
+        filter: none !important;
+      }
+    }
+
+    &.NONE_BACKDROP_FILTER {
+      * {
+        backdrop-filter: none !important;
+      }
+    }
+  }
+
+  $dt: cubic-bezier(.57, .46, 0, 1) .5s;
+  z-index: 1;
+  @include GridFrame();
+  overflow: hidden;
+
+  .Importing {
+    z-index: 4;
+    background-color: Color(.02, .6);
+    backdrop-filter: $blur-effect-2;
+    @include GridFrame();
+    transition: ease-out .5s;
+
+    .dark {
+      z-index: 1;
+      opacity: .5;
+      background: radial-gradient(circle, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.77) 100%);
+      transition: ease-out .5s;
+
+      @starting-style {
+        opacity: 0;
+      }
+    }
+
+    .Fetching {
+      z-index: 2;
+    }
+
+    @starting-style {
+      backdrop-filter: none;
+      background-color: #0000;
+    }
+  }
+
+  .workSpaceMgr {
+    z-index: 3;
+    display: grid;
+    grid-template-columns: 1fr 5fr;
+    overflow: hidden;
+
+    &,
+    * {
+      pointer-events: none;
+    }
+
+    .menu {
+      transition: $dt;
+      background: Color(.3, .5);
+      backdrop-filter: $blur-effect;
+      transform: translateX(-120%);
+      display: grid;
+      grid-template-rows: auto 1fr;
+
+      overflow: hidden;
+
+      &,
+      * {
+        pointer-events: all;
+      }
+
+      input {
+        background-color: Color(1, .1);
+        padding: 10px 20px;
+        font-size: 18px;
+        border: none;
+        outline: none;
+        color: Color();
+
+        &:hover {
+          background-color: Color(.8, .2);
+          transition: none;
+        }
+
+        &:focus {
+          background-color: Color(.2, .5);
+        }
+
+        ::placeholder {
+          color: Color(1, 3);
+        }
+      }
+
+      .list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow: auto;
+        padding: 20px 0;
+
+        .workSpace {
+          display: flex;
+          flex-direction: column;
+          background-color: Color(.5, .2);
+          padding: 10px;
+          gap: 5px;
+
+          .desktopPreview {
+            overflow: hidden;
+            border: 2px solid Color();
+            outline: none;
+            padding: 0;
+            transition: none;
+            overflow: hidden;
+            @include GridFrame();
+
+            .note {
+              overflow: hidden;
+              z-index: 5;
+              display: flex;
+              justify-content: start;
+              align-items: flex-start;
+              padding: 10px;
+              font-size: 15px;
+
+              span {
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+              }
+            }
+
+            .indexNumber {
+              z-index: 4;
+              display: flex;
+              justify-content: start;
+              align-items: flex-end;
+              padding: 10px;
+              font-size: 15px;
+              text-shadow: 0 0 10px #000;
+            }
+
+            .backdrop {
+              z-index: 3;
+              background: #00000070;
+              background: linear-gradient(45deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, .1) 30%);
+            }
+
+            .backdrop2 {
+              z-index: 3;
+              background: #00000070;
+              background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 25%);
+            }
+
+            .windows {
+              z-index: 2;
+              @include GridFrame();
+
+              .win {
+                .position {
+                  transition: none;
+                  position: relative;
+                  border: 1px solid #000;
+                  backdrop-filter: blur(5px);
+                }
+              }
+            }
+
+            .Background {
+              z-index: 1;
+            }
+          }
+
+          .top {
+            display: flex;
+
+            * {
+              font-size: 15px;
+              color: Color();
+
+              svg {
+                fill: Color();
+              }
+            }
+
+            input {
+              background-color: #0000;
+              border: none;
+              outline: none;
+              padding: 5px 10px;
+              flex-grow: 1;
+              width: auto;
+
+              &:hover,
+              &:focus {
+                transition: none;
+                background-color: Color(.5, .5);
+              }
+            }
+
+            button {
+              @include FlexCenter2();
+              border: none;
+              outline: none;
+              background-color: #0000;
+
+              &:hover,
+              &:focus {
+                transition: none;
+                background-color: Color(.5, .5);
+              }
+            }
+          }
+
+          &.activ {
+            background-color: Color(.5, .5);
+            background: linear-gradient(135deg, Color(.5, .7) 20%, Color(.5, .5) 100%);
+          }
+        }
+
+        .add {
+          font-size: 15px;
+          border: none;
+          background-color: Color(.5, .5);
+          color: Color();
+          padding: 8px;
+
+          &:hover,
+          &:active {
+            transition: none;
+            background-color: Color();
+            color: #000;
+          }
+
+          &:active {
+            filter: brightness(.7);
+          }
+        }
+      }
+    }
+  }
+
+  .textArea,
+  .mainArea {
+    transform-origin: 93% 50%;
+  }
+
+  .textArea {
+    z-index: 1;
+    pointer-events: none;
+    transform: scale(.8);
+    @include GridFrame();
+
+    .name,
+    .note {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+
+      input {
+        transition: $dt;
+        pointer-events: all;
+        font-size: 40px;
+        opacity: 0;
+        color: Color();
+        text-align: center;
+        background: none;
+        border: none;
+        outline: none;
+        width: 100%;
+        padding: 10px;
+        transition: DefaultTransition();
+
+        &::placeholder {
+          opacity: .5;
+        }
+
+        &:hover,
+        &:focus {
+          background-color: Color(.5, .3);
+        }
+      }
+    }
+
+    .name {
+      align-items: flex-start;
+    }
+  }
+
+  .mainArea {
+    transition: $dt;
+    z-index: 2;
+    @include GridFrame();
+    overflow: hidden;
+    box-shadow: 0 20px 50px Color(.08, .5);
+    background-color: Color(.08);
+
+    * {
+      color: Color();
+      user-select: none;
+    }
+
+    & {
+      @include KIASE_STYLE();
+    }
+
+    .WorkspaceTips {
+      z-index: 250;
+      @include GridFrame();
+      pointer-events: none;
+      transition: .5s ease-in-out 2s;
+      opacity: 0;
+
+      .Backdrop {
+        z-index: 1;
+        background: linear-gradient(150deg, Color(.1, .8) 0%, Color(.1, 0) 19%);
+        mask-image: linear-gradient(150deg, #000 10%, #0000 19%);
+      }
+
+      .Information {
+        z-index: 2;
+        padding: 35px;
+
+        @mixin tansTiton($dely) {
+          transition: all .5s cubic-bezier(0, .5, 0, 1) $dely, color 0s;
+        }
+
+        * {
+          text-shadow:
+            0 0 25px Color(.08),
+            0 0 15px Color(.08),
+            0 0 5px Color(.08),
+          ;
+          color: LightColor(.05);
+
+          @starting-style {
+            transform: translateX(-50px);
+          }
+        }
+
+        .name {
+          @include tansTiton(0s);
+          font-size: 50px;
+          margin-bottom: 10px;
+          letter-spacing: 5px;
+
+          @starting-style {
+            opacity: 0;
+          }
+        }
+
+        .note {
+          @include tansTiton(.1s);
+          font-size: 30px;
+          margin-bottom: 10px;
+          letter-spacing: 10px;
+          opacity: .5;
+
+          &.havNote {
+            letter-spacing: 5px;
+            opacity: 1;
+
+            @starting-style {
+              opacity: 0;
+            }
+          }
+
+          @starting-style {
+            opacity: 0;
+          }
+        }
+
+        .index {
+          @include tansTiton(.2s);
+          font-size: 25px;
+
+          @starting-style {
+            opacity: 0;
+          }
+        }
+      }
+
+      &.show {
+        transition: .2s ease-in-out 0s;
+        opacity: 1;
+
+        .Information {
+          display: block;
+        }
+      }
+
+      @starting-style {
+        transition: .2s ease-in-out 0s;
+        opacity: 1;
+
+        .Information {
+          display: block;
+        }
+      }
+    }
+
+    .MainArea {
+      z-index: 5;
+      @include GridFrame();
+      overflow: hidden;
+
+      .SnapPreview {
+        z-index: 75;
+        pointer-events: none;
+
+        div {
+          position: relative;
+          background-color: Color(.1, .5);
+          width: 100%;
+          height: 100%;
+          top: 0%;
+          left: 0%;
+          transition-duration: .2s;
+          backdrop-filter: $blur-effect-5;
+        }
+      }
+
+      .Windows {
+        z-index: 50;
+        @include GridFrame();
+
+        .RightDrag {
+          z-index: 50;
+
+          *,
+          & {
+            pointer-events: none;
+          }
+
+          .area {
+            outline: 5px solid #0000;
+            background-color: Color(.5, .2);
+            backdrop-filter: $blur-effect-5;
+            border: 2px solid Color();
+            position: absolute;
+            transition:
+              all DefaultTransition(),
+              border 0s,
+              opacity 0s,
+              width 0s,
+              height 0s,
+              top 0s,
+              left 0s,
+            ;
+
+
+            &.canopen,
+            &.waiting {
+              background-color: Color(.5, .5);
+              backdrop-filter: $blur-effect-3;
+              border: 3px solid Color();
+            }
+
+            &.null {
+              opacity: 0;
+              transition:
+                all DefaultTransition(),
+                width 0s,
+                height 0s,
+                top 0s,
+                left 0s,
+              ;
+            }
+
+            &.waiting {
+              opacity: 1;
+              outline: 5px solid Color(1, .3);
+              border: 2px solid #0000;
+              background-color: Color(.1, .5);
+              backdrop-filter: $blur-effect;
+            }
+          }
+
+          input {
+            position: absolute;
+            pointer-events: all;
+          }
+        }
+
+        .WM {
+          z-index: 1;
+
+          >* {
+            pointer-events: all;
+          }
+        }
+      }
+
+      .StartMenu {
+        overflow: hidden;
+        z-index: 1;
+        opacity: 0;
+        z-index: 1000;
+        background-color: Color(.02, .8);
+        backdrop-filter: none;
+        @include GridFrame();
+
+        & {
+          pointer-events: none;
+        }
+
+        /* KIASTALA VA NIETOKALE!!!!!!! */
+        /* 這KILO語 看不懂正常 我也看不懂 */
+        .KIASTALA {
+          overflow: hidden;
+          z-index: 0;
+          @include GridFrame();
+          align-content: center;
+
+          *,
+          & {
+            pointer-events: none;
+          }
+
+          .LINIE,
+          .CORE,
+          .CER {
+            @include Freedom();
+            position: relative;
+            top: 50%;
+            left: 50%;
+          }
+
+          .LINIE {
+            animation: .25s ease-in-out 0s infinite alternate LINIE_FLASH;
+            width: 150%;
+            height: 20px;
+            background: Color();
+            filter: blur(30px);
+            opacity: .8;
+          }
+
+          .CORE {
+            animation: .25s ease-in-out 0s infinite alternate CORE_FLASH;
+            $s : 280px;
+            width: $s;
+            height: $s;
+            left: 0;
+            border-radius: 50%;
+            background-color: Color();
+            filter: blur(100px);
+          }
+
+          .CER {
+            $s : 300px;
+            width: $s;
+            height: $s;
+            left: 0;
+            @include GridFrame();
+
+            >div {
+              animation: 1s linear 0s infinite CER_ROTA;
+              @include GridFrame();
+
+              >div {
+                border: 10px solid Color();
+                clip-path: polygon(50% 0, 100% 0, 100% 50%, 50% 50%, 50% 100%, 0 100%, 0 50%, 50% 50%);
+                border-radius: 50%;
+              }
+            }
+          }
+        }
+
+        .Side {
+          z-index: 2;
+          display: flex;
+          pointer-events: none;
+
+          >div {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+
+            >button {
+              @include FlexCenter2();
+              aspect-ratio: 1;
+              width: 50px;
+              border: none;
+              outline: none;
+              background-color: #0000;
+
+              svg {
+                fill: Color();
+              }
+
+              &:hover,
+              &:active {
+                background-color: Color();
+
+                &,
+                * {
+                  transition: all 0s, transform DefaultTransition();
+                }
+
+                svg {
+                  fill: #000;
+                }
+              }
+
+              &:active {
+                transform: scale(.9);
+                filter: brightness(.8);
+
+                &,
+                * {
+                  transition: none;
+                }
+              }
+            }
+          }
+        }
+
+        .Buttons {
+          display: flex;
+          justify-content: flex-start;
+          flex-wrap: wrap;
+          flex-direction: row;
+          align-content: center;
+          gap: 10px;
+          padding: 100px;
+          filter: blur(30px);
+          transition: 0s .5s;
+
+          >div {
+            transform: translateX(200px) scale(.95);
+            opacity: 0;
+            transition-timing-function: cubic-bezier(.64, .13, 0, 1);
+
+            >button {
+              @include GridFrame();
+              $size: 150px;
+              width: $size;
+              height: $size;
+              background-color: Color(1, .2);
+              border: none;
+              outline: none;
+
+              * {
+                pointer-events: none;
+              }
+
+              .icon {
+                @include FlexCenter();
+                fill: Color();
+              }
+
+              .name {
+                display: flex;
+                align-items: flex-end;
+                justify-content: flex-start;
+                padding: 5px;
+              }
+
+              &.dropReady,
+              &:hover,
+              &:active {
+                background-color: Color();
+
+                &,
+                * {
+                  transition: all 0s, transform DefaultTransition();
+                }
+
+                .icon {
+                  fill: #000;
+                }
+
+                .name {
+                  span {
+                    color: #000;
+                  }
+                }
+              }
+
+              &:active {
+                transform: scale(.9);
+                filter: brightness(.8);
+
+                &,
+                * {
+                  transition: none;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      .CancelDrag {
+        z-index: 1145141919810;
+
+        &,
+        * {
+          pointer-events: none;
+        }
+
+        .main {
+          $tf: cubic-bezier(.24, -0.01, .99, .34);
+          height: 150px;
+          @include GridFrame();
+
+          .bg {
+            z-index: 1;
+            background: linear-gradient(0deg, Color(.02, 0) 25%, Color(.02, .5) 100%);
+            opacity: 0;
+          }
+
+          .btn {
+            z-index: 2;
+            @include FlexCenter2();
+            transform: translateY(-100%);
+            transition: $tf .3s;
+
+            .area {
+              border: 2px solid #0000;
+              outline: 2px solid Color(1, 0);
+              padding: 6px 0px;
+              opacity: 0;
+
+              span {
+                background-color: Color(.3);
+                color: Color();
+                padding: 10px 150px;
+              }
+
+              &.activ {
+                border: 10px solid #0000;
+                outline: 3px solid Color(1, .5);
+                transform: scale(1.2);
+
+                *,
+                & {
+                  transition: all 0s, transform DefaultTransition();
+                }
+
+                span {
+                  background-color: Color();
+                  color: #000;
+                }
+              }
+            }
+          }
+
+          &.activ {
+            .bg {
+              opacity: 1;
+            }
+
+            .btn {
+              transform: translateY(-10%);
+              transition: DefaultTransition();
+
+              .area {
+                pointer-events: all;
+                opacity: 1;
+              }
+            }
+          }
+        }
+      }
+
+      &.startMenu {
+
+        .Windows,
+        .StartMenu {
+          transition: ease-out .5s;
+        }
+
+        .Windows {
+          opacity: 0;
+
+          *,
+          & {
+            pointer-events: none;
+          }
+        }
+
+        .StartMenu {
+          opacity: 1;
+
+          & {
+            pointer-events: all;
+          }
+
+          .Side {
+            >div {
+              pointer-events: all;
+
+            }
+          }
+
+          .Buttons {
+            filter: blur(0);
+            transition: DefaultTransition();
+            transition-duration: .6s;
+
+            >div {
+              transition: DefaultTransition();
+              transform: none;
+              opacity: 1;
+            }
+          }
+        }
+      }
+    }
+
+    .Buttons {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+
+      .MainArea {
+        flex-grow: 1;
+      }
+
+      .Bar {
+        overflow: hidden;
+        z-index: 10;
+        zoom: 80%;
+        background-color: Color(.02, .7);
+        backdrop-filter: $blur-effect;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 5px;
+
+        >div {
+          display: flex;
+        }
+
+        // .Left {}
+
+        .List {
+          overflow: auto;
+        }
+
+        .Right {
+          display: flex;
+          align-items: center;
+          flex-direction: column;
+          justify-content: center;
+          padding: 0 20px;
+        }
+      }
+    }
+  }
+
+  .BlurBackground {
+    @include GridFrame();
+    overflow: hidden;
+
+    >.Background {
+      scale: 1.1;
+      filter: blur(50px);
+      opacity: .1;
+    }
+  }
+
+  &.hide {
+    .mainArea {
+      opacity: 0;
+
+      *,
+      & {
+        pointer-events: none;
+        transition: none;
+      }
+
+      >.Background {
+        transform: scale(1.2);
+        opacity: 0;
+      }
+
+      >.Buttons {
+        >.Bar {
+          transform: translateY(100%)
+        }
+      }
+    }
+
+    .BlurBackground {
+      >.Background {
+        @starting-style {
+          opacity: 0;
+        }
+      }
+    }
+  }
+
+  &.workSpaceEditor {
+    $dt: cubic-bezier(.27, .25, 0, 1) .7s;
+
+    .workSpaceMgr {
+      .menu {
+        box-shadow: 0 0 10px 10px Color(.1, .2);
+        transform: none;
+        transition: $dt;
+      }
+    }
+
+    .textArea,
+    .mainArea {
+      transform: scale(.8);
+      transition: all $dt , scale cubic-bezier(.53, .22, 0, 1) .2s;
+    }
+
+    .textArea {
+      .name {
+        input {
+          translate: 0 -140%;
+        }
+      }
+
+      .note {
+        input {
+          translate: 0 150%;
+        }
+      }
+
+      input {
+        opacity: 1;
+        transition: $dt, background-color DefaultTransition();
+
+        &:hover,
+        &:focus {
+          transition: $dt, background-color 0s;
+        }
+      }
+    }
+
+    .mainArea {
+      .wsEditor {
+        opacity: 1;
+        transition: $dt;
+      }
+
+      * {
+        pointer-events: none !important;
+      }
+
+      &:hover {
+        scale: 1.01;
+      }
+
+      &:active {
+        transition: cubic-bezier(0, .84, 0, 1) .5s;
+        scale: .99;
+        filter: brightness(.9);
+      }
+    }
+
+    .BlurBackground {
+      >.Background {
+        opacity: .5;
+      }
+    }
+  }
+}
+
+@keyframes LINIE_FLASH {
+  from {
+    height: 20px;
+  }
+
+  to {
+    height: 25px;
+  }
+}
+
+@keyframes CORE_FLASH {
+  from {
+    $s : 280px;
+    width: $s;
+    height: $s;
+  }
+
+  to {
+    $s : 300px;
+    width: $s;
+    height: $s;
+  }
+}
+
+@keyframes CER_ROTA {
+  from {
+    transform: rotateZ(0deg);
+  }
+
+  to {
+    transform: rotateZ(360deg);
+  }
+}

@@ -1,0 +1,187 @@
+@use "@/styles/value" as *;
+
+#Console {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  overflow: hidden;
+
+  * {
+    color: Color();
+    font-family: hack-nerd-font-mono;
+    font-size: 20px;
+  }
+
+  .InputArea {
+    .Input {
+      display: grid;
+      grid-template-columns: auto 1fr;
+    }
+  }
+
+  .OutputArea {
+    overflow: auto;
+  }
+
+  .Line {
+    animation-name: LineFlash;
+    animation-timing-function: linear;
+    animation-duration: .5s;
+    animation-fill-mode: forwards;
+    padding: 0px 10px;
+
+    &[log-level="warn"] {
+      $main-color: #ffff00;
+      $sec-color: #ffff0050;
+
+      $text-color : color-mix(in oklab, Color() 30%, $main-color 70%);
+      $border-color : color-mix(in oklab, Color() 10%, $main-color 90%);
+      $gradient-color : color-mix(in oklab, Color() 5%, $sec-color 95%);
+
+      border-left: 3px solid $border-color;
+      background: linear-gradient(90deg, $gradient-color 0%, rgba(0, 0, 0, 0) 92%);
+
+      *,
+      & {
+        color: color-mix(in oklab, Color() 30%, #ffe718 70%);
+      }
+    }
+
+    &[log-level="error"] {
+      $main-color: #ff0000;
+      $sec-color: #ff000050;
+
+      $text-color : color-mix(in oklab, Color() 30%, $main-color 70%);
+      $border-color : color-mix(in oklab, Color() 10%, $main-color 90%);
+      $gradient-color : color-mix(in oklab, Color() 5%, $sec-color 95%);
+
+      border-left: 3px solid $border-color;
+      background: linear-gradient(90deg, $gradient-color 0%, rgba(0, 0, 0, 0) 92%);
+
+      *,
+      & {
+        color: $text-color;
+      }
+    }
+  }
+
+  .InputArea {
+    background-color: Color(.05, .5);
+
+    .Input {
+      input {
+        background: none;
+        border: none;
+        outline: none;
+        padding-left: 10px;
+
+        &::placeholder {
+          opacity: .5;
+          color: Color();
+        }
+      }
+    }
+
+    .SuggestionBox {
+      display: flex;
+      flex-direction: column;
+
+      .suggestion {
+        display: flex;
+        justify-content: space-between;
+
+        .tab {
+          opacity: 0;
+          padding-left: 50px;
+        }
+
+        &:hover,
+        &.active {
+          background-color: Color(1, .3);
+          transition: none;
+
+          .desc {
+            color: Color(1, .5);
+            transition: none;
+          }
+
+          .shortcut {
+            color: Color(1, .3);
+            transition: none;
+          }
+        }
+
+        .leftGroup {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .label {
+          font-weight: bold;
+          color: Color();
+        }
+
+        .typeTag {
+          font-size: 0.75em;
+          padding: 2px 10px;
+          color: Color(1, .5);
+          text-transform: uppercase;
+        }
+
+        .desc {
+          font-size: 0.85em;
+          color: Color(1, .1);
+          max-width: 300px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+
+    .SignatureHint {
+      display: flex;
+
+      .params {
+        padding-left: 20px;
+        display: flex;
+        gap: 10px;
+
+        .typeInfo {
+          padding-left: 10px;
+          opacity: .5;
+        }
+      }
+    }
+  }
+
+  &.PowerSaveingMode {
+    .Line {
+      animation: none;
+    }
+  }
+}
+
+@keyframes bumpEffect {
+  0% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.Bump {
+  animation: bumpEffect 0.5s cubic-bezier(0, .5, 0, 1);
+}
+
+@keyframes LineFlash {
+  0% {
+    background-color: Color(1, .5);
+  }
+
+  100% {
+    background-color: #fff0;
+  }
+}

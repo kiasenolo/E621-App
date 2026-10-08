@@ -1,11 +1,11 @@
-import { fs } from "./module/fs"
-import { toFullscreen, exitFullscreen, toggleFullscreen } from "./module/fullscreen"
-import htmlElement from "./module/htmlElement"
-import makeZip from "./module/makeZip"
-import type { consoleColorList, consoleStyleList } from "./type/console"
-import { useEffect, useState } from "react"
+import { fs } from "./module/fs";
+import { toFullscreen, exitFullscreen, toggleFullscreen } from "./module/fullscreen";
+import htmlElement from "./module/htmlElement";
+import makeZip from "./module/makeZip";
+import type { consoleColorList, consoleStyleList } from "./type/console";
+import { useEffect, useState } from "react";
+import urlParamsTools from "./module/urlParamsTools";
 
-type UrlParamValue = string | number | boolean | undefined;
 
 export default {
   fullscreen: {
@@ -352,49 +352,6 @@ export default {
 
     return `${level}-${res}`
   },
-  updateUrlWithReplace: function (
-    params: Record<string, UrlParamValue>,
-    overwrite: boolean = false
-  ): void {
-
-    const decode = (s: string): string => decodeURIComponent(s.replace(/\+/g, ' '));
-
-    const parseSearch = (search: string): Map<string, string | undefined> => {
-      const map = new Map<string, string | undefined>();
-
-      search
-        .replace(/^\?/, '')
-        .split('&')
-        .filter(Boolean)
-        .forEach((pair) => {
-          const idx = pair.indexOf('=');
-          if (idx === -1) {
-            map.set(decode(pair), undefined);
-          } else {
-            map.set(decode(pair.slice(0, idx)), decode(pair.slice(idx + 1)));
-          }
-        });
-
-      return map;
-    };
-
-    const url = new URL(window.location.href);
-
-    const query = overwrite ? new Map<string, string | undefined>() : parseSearch(url.search);
-
-    Object.entries(params).forEach(([key, value]) => {
-      query.set(key, value === undefined ? undefined : String(value));
-    });
-
-    const search = Array.from(query.entries())
-      .map(([k, v]) =>
-        v === undefined
-          ? encodeURIComponent(k)
-          : `${encodeURIComponent(k)}=${encodeURIComponent(v)}`
-      )
-      .join('&');
-
-    window.history.replaceState({}, '', `${url.pathname}${search ? `?${search}` : ''}${url.hash}`);
-  },
+  UrlParamsTools: urlParamsTools,
   fs
 }

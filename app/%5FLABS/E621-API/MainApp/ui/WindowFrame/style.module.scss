@@ -1,0 +1,60 @@
+@use "@/styles/value" as *;
+@use "../../styles/kiaseStyle" as *;
+
+.WindowFrame {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+
+  >.ButtonList {
+    @include GridFrame();
+    background: Color(.3, .2);
+    overflow: hidden;
+
+    .text {
+      display: flex;
+
+      @include KIASE_STYLE();
+
+      button {
+        &:first-child {
+          padding-left: 35px !important;
+        }
+
+        transform: skewX(-10deg) translateX(-16px);
+        background-color: Color(.1, .3) !important;
+
+        &:hover {
+
+          *,
+          & {
+            transition: none;
+          }
+
+          background-color: Color() !important;
+        }
+
+        &.activ,
+        &:active {
+
+          *,
+          & {
+            color: Color() !important;
+          }
+
+          background-color: Color(.5) !important;
+        }
+
+        div {
+          transform: skewX(10deg);
+          pointer-events: none;
+        }
+      }
+    }
+  }
+
+  >.MainContent {
+    overflow: hidden;
+    @include GridFrame();
+  }
+}

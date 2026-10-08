@@ -39,6 +39,8 @@ const Viewer = forwardRef<ViewerHandle, React.ComponentProps<"div"> & ViewerProp
     return tt;
   };
 
+  const { defaultRanderMode: _d, backgroundColor: _b, contro: _c, tTranslate: _t, ...divProps } = Prop;
+
   const [bgColor, setBgColor] = useState<string>(Prop.backgroundColor ?? "#00000000");
   const [randerMode, setRanderMode] = useState<randerMode>(Prop.defaultRanderMode ?? "auto");
   const [state, setState] = useState<State>({ x: 0, y: 0, scale: 1 })
@@ -292,7 +294,7 @@ const Viewer = forwardRef<ViewerHandle, React.ComponentProps<"div"> & ViewerProp
         </div>
         <div className={style["Img"]} ref={gestureRef}>
           <div className={style["Tar"]} ref={transformRef} style={{ imageRendering: randerMode, backgroundColor: bgColor }}>
-            <div {...Prop} />
+            <div {...divProps} />
           </div>
         </div>
       </div>
@@ -301,4 +303,4 @@ const Viewer = forwardRef<ViewerHandle, React.ComponentProps<"div"> & ViewerProp
 });
 
 Viewer.displayName = "Viewer";
-export default Viewer;
+export default Viewer;

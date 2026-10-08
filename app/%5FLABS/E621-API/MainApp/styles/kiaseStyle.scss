@@ -1,0 +1,74 @@
+@use "@/styles/value" as *;
+
+@mixin KIASE_STYLE() {
+  button[kiase-style] {
+    outline: none;
+    border: none;
+    background-color: Color(.15);
+    gap: 5px;
+    font-size: 15px;
+    padding: 5px 20px;
+
+    *,
+    & {
+      color: Color();
+    }
+
+    &.actv {
+      background-color: Color(.5);
+      text-shadow: 0 0 5px Color();
+
+      &:hover {
+        text-shadow: 0 0 5px #0008;
+      }
+
+      &:active {
+        background-color: Color(.4);
+        text-shadow: 0 0 5px Color();
+      }
+    }
+
+    &:disabled {
+
+      &,
+      &:hover,
+      &:active {
+        pointer-events: none !important;
+        background-color: Color(.6, .1);
+
+        *,
+        & {
+          color: Color(1, .5);
+        }
+      }
+    }
+
+    &:hover {
+      transition-duration: 0s;
+      background-color: Color();
+
+      *,
+      & {
+        color: #000;
+      }
+    }
+
+    &:active {
+      transition-duration: .3s;
+      background-color: Color(.5);
+
+      *,
+      & {
+        color: Color();
+      }
+
+      >* {
+        transition-duration: 0s;
+        opacity: .5;
+      }
+    }
+  }
+}
+
+/* 笑死這個樣式表是從 https://kiasenolo.nekoweb.org/ 的 Attention 偷來的 */
+/* Source ： https://github.com/kiasenolo/my-frist-nekoweb/blob/master/pages/style.module.scss */

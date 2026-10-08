@@ -1,0 +1,157 @@
+@use "@/styles/value" as *;
+
+#StorageSelect {
+
+  button {
+    outline: none;
+    border: none;
+    background-color: #fff3;
+    padding: 5px 40px;
+
+    &:active,
+    &:hover {
+      background-color: #fff;
+      color: #000;
+      transition: all 0s, transform DefaultTransition();
+    }
+
+    &:active {
+      transition: none;
+      transform: scale(.9);
+      filter: brightness(.8);
+    }
+
+    &:disabled {
+      pointer-events: none;
+      filter: brightness(.5);
+    }
+  }
+
+  @include FullDiv();
+  @include GridFrame(true);
+  overflow: hidden;
+
+  * {
+    font-size: 20px;
+    font-family: hack-nerd-font;
+  }
+
+  .Background {
+    overflow: hidden;
+    z-index: 1;
+
+    .MainText {
+      transition-duration: 2s;
+      width: 100%;
+      text-align: center;
+      font-size: 10vmin;
+      font-weight: bold;
+      letter-spacing: 10px;
+      @include Freedom();
+      -webkit-text-stroke: 2px #fff;
+      paint-order: stroke fill;
+      color: #0000;
+      transform: translate(-50%, -70%);
+      mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 1) 100%);
+      opacity: .8;
+      left: 50%;
+      top: 15vh;
+    }
+  }
+
+  .selector {
+    z-index: 2;
+    overflow: hidden;
+    @include GridFrame();
+    padding: 15vh 3%;
+
+    .solds {
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .sold {
+      @include GridFrame();
+      background-color: #fff1;
+
+      &:hover {
+        transition: none;
+        background-color: #fff2;
+      }
+
+      .main {
+        padding: 30px 15px;
+        display: flex;
+        flex-direction: column;
+
+        .name {
+          flex-grow: 1;
+          padding: 20px;
+          padding-top: 0;
+          font-size: 30px;
+        }
+
+        .buttons {
+          padding: 0 15px;
+          display: flex;
+          gap: 10px;
+        }
+      }
+    }
+  }
+
+  .Buttons {
+    z-index: 3;
+    transition-duration: 1s;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 5vh;
+    gap: 20px;
+  }
+
+  .NoData {
+    z-index: 100;
+    background-color: #0008;
+    backdrop-filter: $blur-effect-3;
+    @include GridFrame();
+    opacity: 0;
+    transition: ease-out .3s;
+
+    *,
+    & {
+      pointer-events: none;
+    }
+
+    &.display {
+      opacity: 1;
+      transition: ease-out .5s;
+
+      *,
+      & {
+        pointer-events: all;
+      }
+    }
+  }
+
+  &.hide {
+    .Background {
+      .MainText {
+        transform: translate(-50%, -100%);
+        opacity: 0;
+      }
+    }
+
+    .selector {
+      opacity: 0;
+      transform: scale(.8);
+    }
+
+    .Buttons {
+      transform: translateY(10%);
+    }
+  }
+}

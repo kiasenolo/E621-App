@@ -1,6 +1,20 @@
+'use client'
+
 import type { NextPage } from 'next';
-import Head from 'next/head';
-import { useRouter } from 'next/router';
+import { usePathname } from 'next/navigation';
+import { useEffect, useSyncExternalStore } from 'react';
+
+// 以前 next/head 會自動把 _app 的預設標題蓋掉 現在 React 19 不會去重複的 <title>
+// 所以記一下目前有幾個 HeadSetting 掛著 _app 只有在沒有的時候才放預設標題
+let mounted = 0;
+const listeners = new Set<() => void>();
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => { listeners.delete(listener) };
+};
+
+export const useHasHeadSetting = () =>
+  useSyncExternalStore(subscribe, () => mounted > 0, () => false);
 
 export interface HeadSettingProps {
   title?: string;
@@ -19,7 +33,16 @@ export interface HeadSettingProps {
 }
 
 const HeadSetting: NextPage<HeadSettingProps> = (prop) => {
-  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    mounted++;
+    listeners.forEach(e => e());
+    return () => {
+      mounted--;
+      listeners.forEach(e => e());
+    };
+  }, []);
   const siteName = "KIASENOLO";
   const domain = "https://public-project-kilo-things.vercel.app";
 
@@ -30,16 +53,16 @@ const HeadSetting: NextPage<HeadSettingProps> = (prop) => {
     ? (prop.ogp.image.startsWith('http') ? prop.ogp.image : `${domain}${prop.ogp.image}`)
     : `${domain}/og-image.png`;
 
-  const url = prop.ogp?.url ?? `${domain}${router.asPath}`;
+  const url = prop.ogp?.url ?? `${domain}${pathname}`;
   const color = prop.ogp?.color ?? "#aff";
 
+  // App Router 沒有 next/head 了 React 19 會把 <title> <meta> <link> 自動搬到 <head>
   return (
-    <Head>
+    <>
       {/* Base */}
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       {prop.keywords && <meta name="keywords" content={prop.keywords} />}
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
       <link rel="icon" href={prop.icon ?? "/favicon.svg"} sizes="any" />
       <link rel="canonical" href={url} />
 
@@ -67,7 +90,7 @@ const HeadSetting: NextPage<HeadSettingProps> = (prop) => {
       {/* --- Theme Color / UI Branding --- */}
       <meta name="theme-color" content={color} />
       <meta name="msapplication-TileColor" content={color} />
-    </Head>
+    </>
   );
 };
 

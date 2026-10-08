@@ -796,7 +796,11 @@ export default function Window({
         <span className={style["text"]}>{title}</span>
         <span className={style["btns"]}>
           <div className={style["DropArea"]} ref={handleRef} onDoubleClick={canMaximize ? handleMaximize : () => { }}></div>
-          {actionBtns.map((btn, i) => <div className={style["btn" + (i + 1)]} onClick={btn.action}>
+          {actionBtns.map((btn, i) => <div
+            key={"win-btn-" + i}
+            className={style["btn" + (i + 1)]}
+            onClick={btn.action}
+          >
             <div className={style["icon"]}>
               {btn.icon}
             </div>

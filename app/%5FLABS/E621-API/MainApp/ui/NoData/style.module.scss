@@ -1,0 +1,219 @@
+@use "@/styles/value" as *;
+
+
+.Fetching {
+  @include GridFrame();
+
+  &,
+  * {
+    pointer-events: none
+  }
+
+  >.Cers {
+    z-index: 1;
+  }
+
+  .Cers {
+    @include GridFrame();
+
+    .cer {
+      @include FlexCenter2();
+
+      .Scale {
+
+        .Mri {
+          .C {
+            aspect-ratio: 1;
+            clip-path: polygon(50% 0, 100% 0, 100% 50%, 50% 50%, 50% 100%, 0 100%, 0 50%, 50% 50%);
+            border: 0 solid Color();
+            border-radius: 50%;
+            animation: linear LoadingRotate;
+            animation-iteration-count: infinite;
+          }
+        }
+
+        @starting-style {
+          transform: scale(0);
+          opacity: 0;
+          filter: blur(10px);
+        }
+      }
+
+      &:nth-child(even) {
+        .Scale {
+          .Mri {
+            transform: rotateX(180deg);
+          }
+        }
+      }
+    }
+  }
+
+  .Line {
+    $size : 20px;
+    $p1: calc(50% + calc($size / 2));
+    $p2: calc(50% - calc($size / 2));
+
+    $skew : -10deg;
+    $scale : 1.1;
+
+    clip-path: polygon(0 $p2, 100% $p2, 100% $p1, 0 $p1);
+    z-index: 2;
+    @include GridFrame();
+    background-color: Color();
+    transform: skewX($skew) scaleX($scale);
+    $cerTransform: skewX(calc(-1 * $skew)) scaleX(calc(1 / $scale));
+
+    >.Cers {
+      z-index: 1;
+      transform: $cerTransform;
+    }
+
+    .Fill {
+      z-index: 2;
+    }
+
+    .C {
+      border-color: Color(.2) !important;
+    }
+
+    .Fill {
+      animation: cubic-bezier(.33, .06, 0, 1) LoadingFillClip;
+      animation-iteration-count: infinite;
+      animation-duration: 2s;
+      @include GridFrame();
+      background-color: Color(.2);
+
+      >.Cers {
+        transform: $cerTransform;
+        filter: drop-shadow(0 0 10px Color(.4));
+      }
+
+      .C {
+        border-color: Color(.5) !important;
+      }
+    }
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  &.Loading {
+    translate: 0 41%;
+
+    .Cers {
+
+      .cer {
+        translate: 45% 0;
+        filter: drop-shadow(0 0 3px Color(1, .5));
+      }
+    }
+
+    .Line {
+      $size : 8px;
+      $p1: calc(50% + calc($size / 2));
+      $p2: calc(50% - calc($size / 2));
+
+      $skew : -10deg;
+      $scale : 1.1;
+
+      clip-path: polygon(0 $p2, 100% $p2, 100% $p1, 0 $p1);
+      transform: skewX($skew) scaleX($scale);
+      $cerTransform: skewX(calc(-1 * $skew)) scaleX(calc(1 / $scale));
+
+      .Fill {
+        >.Cers {
+          transform: $cerTransform;
+          filter: drop-shadow(0 0 5px Color(.5));
+        }
+      }
+    }
+  }
+}
+
+@keyframes LoadingRotate {
+  from {
+    transform: rotateZ(360deg);
+  }
+
+  to {
+    transform: rotateZ(0deg);
+  }
+}
+
+@keyframes LoadingFillClip {
+  0% {
+    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+  }
+
+  20% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+
+  100% {
+    clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+  }
+}
+
+.None {
+  @include GridFrame();
+
+  &,
+  * {
+    pointer-events: none
+  }
+
+  .Text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    .Line {
+      display: flex;
+      @include FlexCenter();
+      gap: 10px;
+
+      .case {
+        font-family: hack-nerd-font;
+        white-space: pre;
+        font-size: 50px;
+
+        animation-name: NONEFlash;
+        animation-timing-function: steps(1);
+        animation-duration: 1s;
+        animation-fill-mode: forwards;
+      }
+
+      @starting-style {
+        opacity: 0;
+      }
+    }
+  }
+}
+
+@keyframes NONEFlash {
+  0% {
+    opacity: 1;
+  }
+
+  1% {
+    opacity: .25;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  20% {
+    opacity: .25;
+  }
+
+  30% {
+    opacity: 1;
+  }
+}
+
+.Error {
+  @include FlexCenter2();
+}
